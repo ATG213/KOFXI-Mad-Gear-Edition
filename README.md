@@ -25,7 +25,7 @@ A modified version of the Japanese PS2 release with arcade-style tools and quali
 - **Quick Reset**: instant reset to start or corner positions (use SELECT BUTTON or bind it via KEY SETTING); hold left / down-left / down / down-right / right for the different positions
 - **Command Enemy**: plays back the other player's recorded "command" input; Triangle on COMMAND edits the command of the other player
 - **Guard options**: added GUARD ALL, RANDOM and RANDOM ALL
-- **Gauge options**: improved, "max" can now be drained, "leader max" is the same
+- **Gauge options**: "max+skill" added which can be drained
 - When 1P opened practice mode, 2P can now use the practice menu by pressing Start, and vice versa
 
 **Game improvements**
@@ -42,12 +42,12 @@ A modified version of the Japanese PS2 release with arcade-style tools and quali
 
 ### How to use
 
-1. Get the file `KOFXI-MadGear-Patcher.exe` from the [Releases](../../releases) page.
+1. Get the file `KOFXI-MadGear-Patcher-v1.0.exe` from the [Releases](../../releases) page.
 2. Start it, choose **your own** dump of the Japanese disc image (`.iso`, SLPS-25660) and an output name.
 3. The patcher checks your image, writes a **new** ISO (your original is never changed) and verifies the result.
 4. Play the new ISO in PCSX2 or from a USB/HDD loader.
 
-Prefer a patch file? Use `KOFXI-MadGear-Edition.ppf` with a PPF patcher of your choice.
+Prefer a patch file? Use `KOFXI-MadGear-Edition-v1.0.ppf` with a PPF patcher of your choice.
 
 **Required source image:** Japanese disc, plain 2048-byte-sector `.iso`, size 2,540,208,128 bytes,
 MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
