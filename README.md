@@ -5,7 +5,7 @@ Arcade & PS2 hacks for **The King of Fighters XI** for a better practice mode an
 | Hack | Platform | Status |
 |---|---|---|
 | [PS2 Mad Gear Edition](#ps2-mad-gear-edition) | PS2 (Japanese disc, SLPS-25660) | Released |
-| [Arcade Mad Gear Edition](https://github.com/ATG213/KOFXI-Mad-Gear-Edition/releases/tag/arcade-v1.0) | Atomiswave (AW Multi) | Released |
+| [Arcade Mad Gear Edition](#arcade-mad-gear-edition-atomiswave) | Atomiswave (AW Multi) | Released, see [AW-MULTI.md](AW-MULTI.md) |
 
 > No game data is distributed here. The patches contain only the bytes that were changed. You need your own
 > dump of the original game.
@@ -58,7 +58,30 @@ MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
 - Use a save from a clean card or backup your save; the unlock hack writes the unlocked state when you save.
 - Please report bugs in the Issues tab, with the game mode and the steps to reproduce.
 
-### Credits
+## Arcade Mad Gear Edition (Atomiswave)
+
+A modified version of the Atomiswave arcade ROM of KOF XI, tested on a real AW Multi.
+
+### Features
+
+- **Quick Rematch** on the win screen: hold A + Start for an instant rematch, B + Start for team order select
+- **Unlock everything**: all bosses available by default, including Shion & Magaki
+- **Combo damage display** under the HIT COMBO counter
+- **Bilinear filter off** (sharp pixels)
+- **Same characters** allowed on a team (use at own discretion)
+
+### How to use
+
+1. Get `KOFXI-MadGear-AW-Patcher-v1.0.exe` from the [Releases](../../releases) page.
+2. Start it, choose **your own** original `ax3201p01.fmem1` (KOF XI MAME dump, CRC32 `6dbdd71b`) and an output name.
+3. The patcher checks your file, writes a **new** `ax3201p01.fmem1` and verifies the result. Your original is never changed.
+4. AW Multi setup (`kofxib` entry in `dc_atomiswave.cpp`): see [AW-MULTI.md](AW-MULTI.md).
+
+### Known issues
+
+- Quick Rematch also triggers when the winner holds A or B while the loser presses Start.
+
+## Credits
 
 - **ATG** ([@ATG213](https://twitter.com/ATG213)): PS2 hacks, reverse engineering, graphics, patcher, testing
 - **Tortita** (ez2torta): KOF XI Atomiswave reverse engineering and research that this work builds on
@@ -66,12 +89,12 @@ MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
 - Tools: PCSX2, Ghidra (emotionengine-reloaded)
 - Thanks to the KOF XI community
 
-### Contact
+## Contact
 
 - YouTube / streams: [youtube.com/atthegates](https://www.youtube.com/atthegates)
 - Mad Gear streams: [youtube.com/@madgearffm7547](https://www.youtube.com/@madgearffm7547/streams)
 - Twitter/X: [@ATG213](https://twitter.com/ATG213)
 
-### Disclaimer
+## Disclaimer
 
 Unofficial fan project, not affiliated with SNK. You need a legally obtained copy of the game.
