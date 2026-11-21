@@ -5,7 +5,7 @@ Arcade & PS2 hacks for **The King of Fighters XI** for a better practice mode an
 | Hack | Platform | Status |
 |---|---|---|
 | [PS2 Mad Gear Edition](#ps2-mad-gear-edition) | PS2 (Japanese disc, SLPS-25660) | Released |
-| Arcade Mad Gear Edition | Atomiswave (AW Multi) | Released, see [AW-MULTI.md](AW-MULTI.md) |
+| [Arcade Mad Gear Edition](https://github.com/ATG213/KOFXI-Mad-Gear-Edition/releases/tag/arcade-v1.0) | Atomiswave (AW Multi) | Released |
 
 > No game data is distributed here. The patches contain only the bytes that were changed. You need your own
 > dump of the original game.
