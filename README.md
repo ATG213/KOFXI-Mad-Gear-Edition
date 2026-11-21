@@ -1,2 +1,77 @@
-# KOFXI-Mad-Gear-Edition
-Arcade &amp; PS2 Hacks for The King of Fighters XI for better practice mode &amp; tournament play
+# KOFXI Mad Gear Edition
+
+Arcade & PS2 hacks for **The King of Fighters XI** for a better practice mode and tournament play.
+
+| Hack | Platform | Status |
+|---|---|---|
+| [PS2 Mad Gear Edition](#ps2-mad-gear-edition) | PS2 (Japanese disc, SLPS-25660) | Released |
+| Arcade Mad Gear Edition | Atomiswave / arcade ROM | In testing, coming soon |
+
+> No game data is distributed here. The patches contain only the bytes that were changed. You need your own
+> dump of the original game.
+
+---
+
+## PS2 Mad Gear Edition
+
+A modified version of the Japanese PS2 release with arcade-style tools and quality-of-life features.
+
+### Features
+
+**Better Practice mode**
+- **COUNTER: ON** option bugfixed, now correctly grants +8F air hit stun, like in the actual game
+- **Display** (damage / stun / both / off): renders damage and stun numbers under the combo counter
+- **Input** (1P / 2P / both): shows input history
+- **Quick Reset**: instant reset to start or corner positions (use SELECT BUTTON or bind it via KEY SETTING); hold left / down-left / down / down-right / right for the different positions
+- **Command Enemy**: plays back the other player's recorded "command" input; Triangle on COMMAND edits the command of the other player
+- **Guard options**: added GUARD ALL, RANDOM and RANDOM ALL
+- **Gauge options**: improved, "max" can now be drained, "leader max" is the same
+- When 1P opened practice mode, 2P can now use the practice menu by pressing Start, and vice versa
+
+**Game improvements**
+- **Quick Rematch** in Arcade Versus: during the win screen, hold Square to rematch, hold X for team order select
+- **Yuri's** differences from the arcade version are fixed
+- **Unlock everything** (all bosses, console characters and challenges) by default
+- **Combo / stun damage display**, can be adjusted in the graphics options
+- **Same characters** allowed on a team (with correct palettes)
+- Start-up logos skipped
+
+**Look**
+- Mad Gear start-up logo, title logo and attract-mode logo
+- Recolored menus
+
+### How to use
+
+1. Get the file `KOFXI-MadGear-Patcher.exe` from the [Releases](../../releases) page.
+2. Start it, choose **your own** dump of the Japanese disc image (`.iso`, SLPS-25660) and an output name.
+3. The patcher checks your image, writes a **new** ISO (your original is never changed) and verifies the result.
+4. Play the new ISO in PCSX2 or from a USB/HDD loader.
+
+Prefer a patch file? Use `KOFXI-MadGear-Edition.ppf` with a PPF patcher of your choice.
+
+**Required source image:** Japanese disc, plain 2048-byte-sector `.iso`, size 2,540,208,128 bytes,
+MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
+
+### Notes
+
+- Tested in PCSX2 2.8.2 and on a real PS2.
+- Use a save from a clean card or backup your save; the unlock hack writes the unlocked state when you save.
+- Please report bugs in the Issues tab, with the game mode and the steps to reproduce.
+
+### Credits
+
+- **ATG** ([@ATG213](https://twitter.com/ATG213)): PS2 hacks, reverse engineering, graphics, patcher, testing
+- **Tortita** (ez2torta): KOF XI Atomiswave reverse engineering and research that this work builds on
+- **odabugs**: hitbox viewer script
+- Tools: PCSX2, Ghidra (emotionengine-reloaded)
+- Thanks to the KOF XI community
+
+### Contact
+
+- YouTube / streams: [youtube.com/atthegates](https://www.youtube.com/atthegates)
+- Mad Gear streams: [youtube.com/@madgearffm7547](https://www.youtube.com/@madgearffm7547/streams)
+- Twitter/X: [@ATG213](https://twitter.com/ATG213)
+
+### Disclaimer
+
+Unofficial fan project, not affiliated with SNK. You need a legally obtained copy of the game.
