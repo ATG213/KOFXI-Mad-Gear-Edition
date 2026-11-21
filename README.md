@@ -5,7 +5,7 @@ Arcade & PS2 hacks for **The King of Fighters XI** for a better practice mode an
 | Hack | Platform | Status |
 |---|---|---|
 | [PS2 Mad Gear Edition](#ps2-mad-gear-edition) | PS2 (Japanese disc, SLPS-25660) | Released |
-| [Arcade Mad Gear Edition](#arcade-mad-gear-edition-atomiswave) | Atomiswave (AW Multi) | Released, see [AW-MULTI.md](AW-MULTI.md) |
+| [Arcade Mad Gear Edition](#arcade-mad-gear-edition-atomiswave) | Atomiswave (AW Multi) | Released |
 
 > No game data is distributed here. The patches contain only the bytes that were changed. You need your own
 > dump of the original game.
@@ -73,14 +73,10 @@ A modified version of the Atomiswave arcade ROM of KOF XI, tested on a real AW M
 
 ### How to use
 
-1. Get `KOFXI-MadGear-AW-Patcher-v1.0.exe` from the [Releases](../../releases) page.
+1. Get `KOFXI-MadGear-AW-Patcher-v1.1.exe` from the [Releases](../../releases) page.
 2. Start it, choose **your own** original `ax3201p01.fmem1` (KOF XI MAME dump, CRC32 `6dbdd71b`) and an output name.
 3. The patcher checks your file, writes a **new** `ax3201p01.fmem1` and verifies the result. Your original is never changed.
 4. AW Multi setup (`kofxib` entry in `dc_atomiswave.cpp`): see [AW-MULTI.md](AW-MULTI.md).
-
-### Known issues
-
-- Quick Rematch also triggers when the winner holds A or B while the loser presses Start.
 
 ## Credits
 
