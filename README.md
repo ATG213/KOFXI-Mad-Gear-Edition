@@ -26,6 +26,7 @@ A modified version of the Japanese PS2 release with arcade-style tools and quali
 - **Command Enemy**: plays back the other player's recorded "command" input; Triangle on COMMAND edits the command of the other player
 - **Guard options**: added GUARD ALL, RANDOM and RANDOM ALL
 - **Gauge options**: "max+skill" added which can be drained
+- **Automatic HP/Stun Refill:** Now faster, happens after 1 second
 - When 1P opened practice mode, 2P can now use the practice menu by pressing Start, and vice versa
 
 **Game improvements**
