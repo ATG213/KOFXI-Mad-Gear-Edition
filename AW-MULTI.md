@@ -16,6 +16,11 @@ Build: `06-qr-v11-loser-only` (v1.1). The v1.0 base (build 05) was tested on the
 Result: CRC32 `6dbdd71b` (forged to match the original), SHA1 `32aec5f702d3e3d587d81584b5c65f4a3001a379`, MD5 `52fd5af6cc5cd416016c826175abdba9`.
 
 ## AW Multi setup (per aje_fr)
-1. Folder `kofxib/` on the stick: original `ax3201m01.mrom1` ... `ax3207m01.mrom7`, the patched `ax3201p01.fmem1`, plus `kofxib.bmp` and `kofxib.key`.
-2. In `dc_atomiswave.cpp` at the stick root: copy the `ROM_START( kofxi )` block, rename it to `kofxib`, and use the SHA1 above for the fmem1 line.
+Everything goes on the **micro SD card** that is inserted in the AW Multi.
+
+Option A (separate game entry, keeps your original KOF XI):
+1. Create a folder `kofxib/` on the SD card: original `ax3201m01.mrom1` ... `ax3207m01.mrom7`, the patched `ax3201p01.fmem1`, plus `kofxib.bmp` and `kofxib.key`.
+2. In `dc_atomiswave.cpp` (root of the SD card): copy the `ROM_START( kofxi )` block, rename it to `kofxib`, and use the SHA1 above for the fmem1 line.
 3. Add at the end: `GAME( 2005, kofxib, awbios, aw2c, aw2c, atomiswave_state, init_atomiswave, ROT0, "Sammy / SNK Playmore", "The King of Fighters XI Mad Gear Edition", GAME_FLAGS )`
+
+Option B (simpler, replaces your original): copy the patched `ax3201p01.fmem1` over the one in your existing `kofxi/` folder (keep a backup of the original). Depending on your setup, the SHA1 of the `fmem1` line in the `kofxi` entry of `dc_atomiswave.cpp` may have to be changed to the SHA1 above. This option is untested.
