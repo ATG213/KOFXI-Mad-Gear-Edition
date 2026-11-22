@@ -43,19 +43,19 @@ A modified version of the Japanese PS2 release with arcade-style tools and quali
 
 ### How to use
 
-1. Get the file `KOFXI-MadGear-Patcher-v1.3.exe` from the [Releases](../../releases) page.
+1. Get the file `KOFXI-MadGear-Patcher-v1.4.exe` from the [Releases](../../releases) page.
 2. Start it, choose **your own** dump of the Japanese disc image (`.iso`, SLPS-25660) and an output name.
 3. The patcher checks your image, writes a **new** ISO (your original is never changed) and verifies the result.
 4. Play the new ISO in PCSX2 or from a USB/HDD loader.
 
-Prefer a patch file? Use `KOFXI-MadGear-Edition-v1.3.ppf` with a PPF patcher of your choice.
+Prefer a patch file? Use `KOFXI-MadGear-Edition-v1.4.ppf` with a PPF patcher of your choice.
 
 **Required source image:** Japanese disc, plain 2048-byte-sector `.iso`, size 2,540,208,128 bytes,
 MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
 
 ### Notes
 
-- Tested in PCSX2 2.8.2 and on a real PS2.
+- Tested in PCSX2 2.8.2. v1.3 was also tested on a real PS2, v1.4 (arcade continue fix) not yet.
 - Use a save from a clean card or backup your save; the unlock hack writes the unlocked state when you save.
 - Please report bugs in the Issues tab, with the game mode and the steps to reproduce.
 
