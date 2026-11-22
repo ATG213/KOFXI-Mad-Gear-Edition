@@ -81,7 +81,7 @@ A modified version of the Atomiswave arcade ROM of KOF XI, tested on a real AW M
 ## Credits
 
 - **ATG** ([@ATG213](https://twitter.com/ATG213)): PS2 hacks, reverse engineering, graphics, patcher, testing
-- **[@tortita](https://x.com/ontortita)** (ez2torta): KOF XI Atomiswave reverse engineering and research that this work builds on
+- **[@ontortita](https://x.com/ontortita)** (ez2torta): KOF XI Atomiswave reverse engineering and research that this work builds on
 - **[@odabugs](https://x.com/odabugs)**: hitbox viewer script
 - Tools: PCSX2, Ghidra (emotionengine-reloaded), Claude (Anthropic AI assistant: used for reverse engineering help, patch code and the patcher tools; everything is tested by ATG in the emulator and on real hardware)
 - Thanks to the KOF XI community
