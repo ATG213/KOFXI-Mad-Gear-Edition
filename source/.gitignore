@@ -1,0 +1,11 @@
+__pycache__/
+build/
+dist/
+*.iso
+*.elf
+*.bin
+*.ppf
+gfx_tool_config.json
+*.fmem1
+*.dec
+payload.bin

@@ -1,0 +1,4 @@
+# build tools (only needed to regenerate gfx_hacks.json / build the exe)
+keystone-engine
+capstone
+pyinstaller

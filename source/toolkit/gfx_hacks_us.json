@@ -1,0 +1,36 @@
+{
+ "variant": "US",
+ "elf": "SLUS_216.87",
+ "elf_size": 2037464,
+ "elf_off": 256,
+ "elf_base": 1048576,
+ "hacks": [
+  {
+   "key": "skiplogos",
+   "label": "Skip intro logos",
+   "desc": "Skips the ADX logo; the SNK Playmore logo stays (US start-up: SNK, ADX, memory card warning, memory card load, intro video).",
+   "patches": [
+    {
+     "addr": 2612904,
+     "orig": "d4f3090c",
+     "new": "00000000"
+    },
+    {
+     "addr": 2612912,
+     "orig": "e4f6090c",
+     "new": "00000000"
+    },
+    {
+     "addr": 2612992,
+     "orig": "b400022a",
+     "new": "0000022a"
+    },
+    {
+     "addr": 2613008,
+     "orig": "08f7090c",
+     "new": "00000000"
+    }
+   ]
+  }
+ ]
+}

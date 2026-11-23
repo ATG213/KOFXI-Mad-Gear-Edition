@@ -43,19 +43,19 @@ A modified version of the Japanese PS2 release with arcade-style tools and quali
 
 ### How to use
 
-1. Get the file `KOFXI-MadGear-Patcher-v1.4.exe` from the [Releases](../../releases) page.
+1. Get the file `KOFXI-MadGear-Patcher-v1.5.exe` from the [Releases](../../releases) page.
 2. Start it, choose **your own** dump of the Japanese disc image (`.iso`, SLPS-25660) and an output name.
 3. The patcher checks your image, writes a **new** ISO (your original is never changed) and verifies the result.
 4. Play the new ISO in PCSX2 or from a USB/HDD loader.
 
-Prefer a patch file? Use `KOFXI-MadGear-Edition-v1.4.ppf` with a PPF patcher of your choice.
+Prefer a patch file? Use `KOFXI-MadGear-Edition-v1.5.ppf` with a PPF patcher of your choice.
 
 **Required source image:** Japanese disc, plain 2048-byte-sector `.iso`, size 2,540,208,128 bytes,
 MD5 `2bb2d183e85964a799f3eb73b5812a71`. The patcher refuses any other file.
 
 ### Notes
 
-- Tested in PCSX2 2.8.2. v1.3 was also tested on a real PS2, v1.4 (arcade continue fix) not yet.
+- Tested in PCSX2 2.8.2 and on a real PS2 (v1.5).
 - Use a save from a clean card or backup your save; the unlock hack writes the unlocked state when you save.
 - Please report bugs in the Issues tab, with the game mode and the steps to reproduce.
 
@@ -78,6 +78,10 @@ A modified version of the Atomiswave arcade ROM of KOF XI, tested on a real AW M
 3. The patcher checks your file, writes a **new** `ax3201p01.fmem1` and verifies the result. Your original is never changed.
 4. AW Multi setup (`kofxib` entry in `dc_atomiswave.cpp`): see [AW-MULTI.md](AW-MULTI.md).
 
+## Source code
+
+The tools that build the PS2 and the Atomiswave Mad Gear Edition (toolkit, hack builders, patchers, documentation) are in [`source/`](source/). Noncommercial license.
+
 ## Credits
 
 - **ATG** ([@ATG213](https://twitter.com/ATG213)): PS2 hacks, reverse engineering, graphics, patcher, testing
@@ -95,3 +99,7 @@ A modified version of the Atomiswave arcade ROM of KOF XI, tested on a real AW M
 ## Disclaimer
 
 Unofficial fan project, not affiliated with SNK. You need a legally obtained copy of the game.
+
+## License
+
+The patchers and documentation in this repository are released under the [PolyForm Noncommercial License 1.0.0](LICENSE): free for any noncommercial use and sharing, commercial use is not permitted. This applies to the mod only, not to the game or its assets.
