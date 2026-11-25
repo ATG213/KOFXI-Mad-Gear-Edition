@@ -58,7 +58,7 @@ text "X ga shiyou kanou ni narimashita" (X is now available). Order seen so far:
 | `PACK\PS.GRC` | Character select (Player Select) textures: 1024x1024 background, 64x64 icons, 47 x 256x256 palettised textures | readable (partly) |
 | `PACK\ORDER.GRC` | Team order screen, 50 entries | unknown |
 | `PACK\LOAD.GRC` | Loading screen, 2 entries | unknown |
-| `PACK\FIGHT.BCC`, `FIGHTA.BCC` | Fight HUD (model data) | unknown |
+| `PACK\FIGHT.BCC`, `FIGHTA.BCC` | Fight HUD: entry 1 = HUD atlas (attract logo), entries 16-62 = the 47 character palettes (see workflow 3.3c) | attract logo + **palettes editable** |
 | `DEMO\OPENING.GRC` | Opening / title assets, 122 images (KOF logos, **title logo = entry 116**, title backgrounds, art) | **editable** per entry, see section 3 |
 | `DEMO\STAFF.GRC` | Staff roll, 48 entries | unknown |
 | `GALLERY\*\*.GRC` | Gallery art / character / ending images | unknown |

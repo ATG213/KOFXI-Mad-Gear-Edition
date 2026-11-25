@@ -407,6 +407,65 @@ def check_png(target, path, fit=False, allow_quant=False, scale=1.0, dx=0, dy=0,
     return r
 
 
+# ---------------------------------------------------------------- originals straight from the ISO
+def extract_original(iso_path, target, variant=None):
+    """The original graphic of a target, decoded from the user's ISO (no dumped files needed).  Returns an RGBA PIL
+    image, or None when this disc has no such graphic.  Orientation and size = what a replacement PNG should be."""
+    iso = G.Iso(iso_path)
+    try:
+        variant = variant or iso.variant() or 'JP'
+        kind = target.kind
+        if kind == 'raw':
+            spec = raw_spec(target.key, variant)
+            if spec is None:
+                return None
+            lba, size = iso.find(spec[0])
+            return decode_for(iso.read(lba, size), spec)
+        if kind == 'opening':
+            _, cont, offs, _ = opening_info(iso_path)          # cached: decoding OPENING.GRC takes ~0.4 s
+            n = int(target.key[1:])
+            d, _ = G.maz_decompress(cont[offs[n]:offs[n + 1]])
+            return G.entry_to_image(d)
+        if kind == 'coin':
+            lba, size = iso.find(T.COIN_PATHS[0])
+            data = iso.read(lba, size)
+            cnt, offs = G.container_entries(data)
+            n = T.COIN_ENTRIES[target.key]
+            d, _ = G.maz_decompress(data[offs[n]:offs[n + 1]])
+            return G.entry_to_image(d)
+        if kind == 'attract':
+            # the whole original logo (it is wider than the area a new logo is fitted into: the two left spikes)
+            data, base = G.hud_atlas(iso)
+            P = G.ATTRACT_PIECES
+            cx0, cy0 = min(p[3] + p[6] for p in P), min(p[1] + p[5] for p in P)
+            cx1, cy1 = max(p[4] + p[6] for p in P), max(p[2] + p[5] for p in P)
+            out = np.zeros((cy1 - cy0, cx1 - cx0, 4), np.uint8)
+            for name, y0, y1, x0, x1, dy, dx in P:
+                for y in range(y0, y1):
+                    row = np.frombuffer(data, '<u2', x1 - x0, base + (y * 256 + x0) * 2)
+                    sy = y + dy - cy0
+                    for i, v in enumerate(row):
+                        sx = x0 + i + dx - cx0
+                        if any(a <= y < b and c <= x0 + i < d for a, b, c, d in G.ATTRACT_KEEP):
+                            continue         # QUICK bar texels, not part of the logo
+                        # the rectangles are generous and overlap: the first piece (A, with the text line) wins
+                        if v & 0x8000 and not out[sy, sx, 3]:
+                            out[sy, sx] = ((v & 31) * 255 // 31, ((v >> 5) & 31) * 255 // 31,
+                                           ((v >> 10) & 31) * 255 // 31, 255)
+            return Image.fromarray(out, 'RGBA')
+        if kind == 'clock':
+            import gfx_menu as M
+            lba, sectors, stream, d = M._load(iso, M.CLOCK_FILES[0])
+            pal = [tuple(d[4 * M.swz(i):4 * M.swz(i) + 4]) for i in range(256)]
+            x0, y0, x1, y1 = M.CLOCK_RECT
+            px = np.frombuffer(d[0x400:0x400 + 256 * M.PAGE_ROWS], np.uint8).reshape(M.PAGE_ROWS, 256)[y0:y1, x0:x1]
+            lut = np.array([(r, g, b, 255 if a else 0) for r, g, b, a in pal], np.uint8)
+            return M.game_view(Image.fromarray(lut[px], 'RGBA'))
+        return None
+    finally:
+        iso.f.close()
+
+
 # ---------------------------------------------------------------- folder scan
 def scan_folder(folder):
     """-> list of (key, path) for every file whose name starts with a known key; later files of a key win."""
@@ -441,9 +500,9 @@ def copy_iso(src, dst, progress=None):
 
 def apply_jobs(src, dst, jobs, fit=False, allow_quant=False, force=False, log=print, progress=None,
                scale=1.0, dx=0, dy=0, hacks=(), ui_color=None, hide_anim=False, black_bg=False, frame_color=None,
-               margin_color=None, clock_rot=0, font_orange=None, font_teal=None):
-    """jobs: [(key, png path)], hacks: keys from gfx_hacks.hack_list().  Validates everything first, copies
-    src -> dst, patches, verifies."""
+               margin_color=None, clock_rot=0, font_orange=None, font_teal=None, palettes=None):
+    """jobs: [(key, png path)], hacks: keys from gfx_hacks.hack_list(), palettes: {char id: .PAL path}.  Validates
+    everything first, copies src -> dst, patches, verifies."""
     cat = T.by_key()
     hacks = list(hacks)
     variant = G.detect_variant(src)
@@ -472,6 +531,21 @@ def apply_jobs(src, dst, jobs, fit=False, allow_quant=False, force=False, log=pr
             log('  -> %s cannot be patched as it is%s' % (key, ' (needs colour reduction: convert it first)'
                                                            if r.needs_quant else ''))
         checked.append((t, path, r))
+    pal_data = {}
+    if palettes:
+        import gfx_palettes
+        psrc = gfx_palettes.Source(src)
+        for cid, path in sorted(palettes.items()):
+            try:
+                data = gfx_palettes.load_file(path, psrc.pals[cid])
+            except (SystemExit, OSError) as e:
+                log('  ERROR [palette %s] %s' % (gfx_palettes.CHAR_NAMES.get(cid, cid), e))
+                bad = True
+                continue
+            if data != psrc.pals[cid]:
+                pal_data[cid] = data
+        log('character palettes: %s' % (', '.join(gfx_palettes.CHAR_NAMES[c] for c in sorted(pal_data)) or
+                                        'none differ from the disc'))
     if bad:
         raise SystemExit('aborted: fix the files above first (nothing was copied or written)')
     ops_pre = [(t, r) for t, p, r in checked if t.kind == 'opening']
@@ -516,6 +590,9 @@ def apply_jobs(src, dst, jobs, fit=False, allow_quant=False, force=False, log=pr
         for t, r in att:
             G.replace_attract_canvas(dst, np.array(r.final))
             log('attract: FIGHT.BCC and FIGHTA.BCC patched')
+        if pal_data:
+            import gfx_palettes
+            gfx_palettes.patch_palettes(dst, pal_data, log)
         verify(dst, raws, ops, log, variant)
         if hacks:
             import gfx_hacks
@@ -670,6 +747,7 @@ def main(argv=None):
     p.add_argument('--frame-color', metavar='RRGGBB', help='grey window frame of the main menu, e.g. 202020')
     p.add_argument('--black-menu-bg', action='store_true', help='black main menu background')
     p.add_argument('--disable-menu-anim', action='store_true', help='hide the 3D swirl and the rotating KOF XI ring text')
+    p.add_argument('--palettes', metavar='DIR', help='folder with character palettes (<id>_<name>.PAL)')
     for q in (p,):
         q.add_argument('--fit', action='store_true')
         q.add_argument('--quantize', action='store_true')
@@ -729,7 +807,11 @@ def main(argv=None):
         fr = gfx_menu.parse_color(a.frame_color)
         if not fr:
             raise SystemExit('--frame-color needs 6 hex digits, e.g. 202020')
-    if not jobs and not hacks and not ui and not fr and not mg and not fo and not ft and not a.disable_menu_anim and not a.black_menu_bg:
+    pals = None
+    if a.palettes:
+        import gfx_palettes
+        pals = gfx_palettes.scan_folder(a.palettes)
+    if not jobs and not pals and not hacks and not ui and not fr and not mg and not fo and not ft and not a.disable_menu_anim and not a.black_menu_bg:
         raise SystemExit('nothing to do')
     if a.dry_run:
         for k, p in jobs:
@@ -738,7 +820,7 @@ def main(argv=None):
         return 0
     apply_jobs(a.src, a.dst, jobs, a.fit, a.quantize, a.force, hacks=hacks, ui_color=ui,
                hide_anim=a.disable_menu_anim, black_bg=a.black_menu_bg, frame_color=fr,
-               margin_color=mg, clock_rot=a.clock_rotate, font_orange=fo, font_teal=ft)
+               margin_color=mg, clock_rot=a.clock_rotate, font_orange=fo, font_teal=ft, palettes=pals)
     return 0
 
 

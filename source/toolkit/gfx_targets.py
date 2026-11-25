@@ -9,7 +9,7 @@ import os
 import re
 import sys
 
-TOOL_VERSION = '1.17.1'          # bump on every release (new graphics, new checks)
+TOOL_VERSION = '1.18.0'          # bump on every release (new graphics, new checks)
 HERE = os.path.dirname(os.path.abspath(__file__))
 FROZEN = bool(getattr(sys, 'frozen', False))                      # running as the PyInstaller exe
 APP_DIR = os.path.dirname(sys.executable) if FROZEN else HERE     # where config / an updated catalog live

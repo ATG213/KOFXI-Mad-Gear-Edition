@@ -1,7 +1,7 @@
 # KOF XI (PS2): reverse engineering and ROM-hack notes
 
 Working notes from porting the Atomiswave hacks (combo damage display, quick rematch, ...) to the PS2 version of
-The King of Fighters XI, plus everything learned about the game on the way. Written 2026-11-19, updated 2026-11-23. All addresses are **EE virtual addresses of the JP ELF** unless stated
+The King of Fighters XI, plus everything learned about the game on the way. Written 2026-11-19, updated 2026-11-25. All addresses are **EE virtual addresses of the JP ELF** unless stated
 otherwise. No game data (ISO, ELF, decompiled sources, saves) is stored in the repository.
 
 Companion docs: [`hack-patch-table.md`](hack-patch-table.md) (patch table), [`ps2-graphics-db.md`](ps2-graphics-db.md) and
@@ -16,7 +16,7 @@ default settings) and on a real PS2 (Mad Gear Edition, via OPL). Details and add
 | Hack | Notes |
 |---|---|
 | Combo damage display | MIPS port of the SH-4 wrapper (task fn hook + text printer); stun line and DISPLAY option |
-| Better practice mode | practice menu rework: DISPLAY, INPUT, QUICK RESET, GAUGE options, COMMAND ENEMY, GUARD ALL / RANDOM, 2P menu |
+| Better practice mode | practice menu rework: DISPLAY, INPUT, QUICK RESET, GAUGE options, COMMAND ENEMY, GUARD ALL / RANDOM, 2P menu, HIT BOX, frame advantage display, UKEMI (Mad Gear 1.6) |
 | Unlock all | one u16 unlock mask forced to 0x3FFF |
 | Quick rematch (Arcade Versus) | hold Square (A) = same team, hold Cross (B) = order/leader select |
 | Same characters | skip duplicate check, always load palettes |

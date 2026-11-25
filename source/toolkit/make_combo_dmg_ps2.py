@@ -10,6 +10,9 @@ into the ELF (no runtime code writes, so no EE cache issue on real hardware).
 Needs: keystone-engine, capstone.
 """
 import argparse, shutil, struct, sys
+import hitbox_ps2 as HB
+import frameadv_ps2 as FA
+import ukemi_ps2 as UK
 import keystone as ks_mod
 import capstone
 
@@ -85,7 +88,7 @@ def sx(v):
     return v if v < 0x8000 else v - 0x10000
 
 
-def source(input_hook=False):
+def source(input_hook=False, frameadv=False):
     d_hi, d_lo = hi_lo(DATA)
     t_hi, t_lo = hi_lo(TEAM0)
     g_hi, g_lo = hi_lo(GLYPHTAB)
@@ -107,6 +110,51 @@ def source(input_hook=False):
 """
     f_hi, f_lo = hi_lo(PRACTICE_FLAG)
     a_hi, a_lo = hi_lo(ACTOR_SLOTS)
+    # frame advantage display (frameadv_ps2.py): per-frame logic, and the extra line after the last line of the practice block
+    FA_TICK_CALL = f"""
+    daddu $a0, $s1, $zero
+    jal {FA.FA_CODE:#x}
+    nop
+"""
+    # practice DISPLAY values with the frame display (ATG 2026-11-24): 0 ALL (DMG + STUN + frames), 1 DMG+STN, 2 FRAMES, 3 OFF.
+    # Mapped onto the internal values of the line code (2 = damage + stun, 3 = off); FRAMES jumps past the damage / stun lines.
+    # The practice value is kept at 0x2C($sp) for fadraw.  Normal matches (OPTIONS DISPLAY) are unchanged.
+    PV_MAP = """
+    sltiu $t4, $s5, 4
+    bnez $t4, pv_ok
+    nop
+    addu $s5, $zero, $zero
+pv_ok:
+    sw $s5, 0x2C($sp)
+    addiu $t4, $zero, 3
+    beq $s5, $t4, gotv
+    nop
+    addiu $t4, $zero, 2
+    bne $s5, $t4, pv_dmgstn
+    nop
+    sw $zero, 0x34($sp)
+    b nostun
+    nop
+pv_dmgstn:
+    addiu $s5, $zero, 2
+""" if frameadv else ""
+    FA_DRAW_CALL = f"""
+    lw $t4, 0x34($sp)
+    addiu $t4, $t4, {LINE_DY}
+    sw $t4, 0x34($sp)
+fadraw:
+    lw $t4, 0x2C($sp)
+    addiu $t5, $zero, 1
+    beq $t4, $t5, finish
+    nop
+    daddu $a0, $s1, $zero
+    lw $a1, 0($s6)
+    lw $a2, 4($s6)
+    lw $t4, 0x34($sp)
+    addu $a2, $a2, $t4
+    jal {FA.FA_DRAW:#x}
+    nop
+""" if frameadv else "fadraw:\n"
     # practice mode, INPUT display on for this side: hide the vanilla HIT COMBO counter of this side (it overlaps the input list,
     # the "N HITS" line replaces it).  0x192710 drives the counter through 'Director Ctrl' tasks (anim group 2; side 0 = director
     # ids 0x15..0x1B + 0x23, side 1 = 0x1C..0x22 + 0x24), whose scripts spawn 'Director Sprite' actors.  Actor slots ACTOR_SLOTS
@@ -183,6 +231,7 @@ novh:
     nop
     lw $v0, 0x10($s0)
     lbu $s1, 0($v0)
+{FA_TICK_CALL if frameadv else ''}
 {INPUT_CALL if input_hook else ''}
 {HIDE_VANILLA if input_hook else ''}
     lui $t0, {t_hi:#x}
@@ -349,6 +398,7 @@ show:
     addu $s6, $s6, $t1
     lui $t0, {o_hi:#x}
     lbu $s5, {sx(o_lo)}($t0)
+{PV_MAP}
     b gotv
     nop
 normalmode:
@@ -402,14 +452,14 @@ nostun:
     beq $t1, $t4, hitsok
     nop
     addiu $t4, $s1, 1
-    bne $t1, $t4, finish
+    bne $t1, $t4, fadraw
     nop
 hitsok:
     sll $t1, $s1, 2
     addu $t1, $s7, $t1
     lw $a0, 0xB8($t1)
     sltiu $t4, $a0, 2
-    bnez $t4, finish
+    bnez $t4, fadraw
     nop
     lui $a1, {sh_hi:#x}
     addiu $a1, $a1, {sx(sh_lo)}
@@ -419,6 +469,7 @@ hitsok:
     addu $a3, $a3, $t4
     bal drawline
     nop
+{FA_DRAW_CALL}
 finish:
     ld $ra, 0x78($sp)
     ld $s0, 0x70($sp)
@@ -653,10 +704,10 @@ rvret:
     return bytes(enc)
 
 
-def assemble(input_hook=False):
+def assemble(input_hook=False, frameadv=False):
     ks = ks_mod.Ks(ks_mod.KS_ARCH_MIPS, ks_mod.KS_MODE_MIPS64 + ks_mod.KS_MODE_LITTLE_ENDIAN)
     # noreorder: keystone would otherwise insert its own delay-slot nop after every branch/jal
-    enc, n = ks.asm(".set noreorder\n" + numeric_regs(source(input_hook)), CAVE)
+    enc, n = ks.asm(".set noreorder\n" + numeric_regs(source(input_hook, frameadv)), CAVE)
     assert_no_pic(bytes(enc), CAVE, "HUD cave")
     return bytes(enc)
 
@@ -890,6 +941,7 @@ REGEN_CAVES = (
     (REGEN_CAVE_B, 0x187574),
 )
 DISPLAY_STRINGS = ("DAMAGE", "STUN", "BOTH", "OFF")
+DISPLAY_STRINGS_FA = ("ALL", "DMG+STN", "FRAMES", "OFF")   # practice values with the frame display (frameadv_ps2.py)
 
 
 # ---- practice COUNTER: ON hit-type fix ----
@@ -915,7 +967,7 @@ pcf_out:
 """, PCFIX)
 
 
-def patch_display(b, off):
+def patch_display(b, off, frameadv=False):
     for a, orig, new in DISPLAY_PATCHES:
         assert struct.unpack_from("<I", b, off(a))[0] == orig, hex(a)
         struct.pack_into("<I", b, off(a), new)
@@ -929,7 +981,7 @@ def patch_display(b, off):
     assert struct.unpack_from("<I", b, off(PCFIX_SITE[0]))[0] == PCFIX_SITE[1], "practice counter fix site"
     struct.pack_into("<I", b, off(PCFIX_SITE[0]), 0x08000000 | (PCFIX >> 2))
     assert off(STRTAB + 0x50) <= ELF_OFF + ELF_FILESZ and not any(b[off(STRTAB):off(STRTAB) + 0x50])
-    for i, sname in enumerate(DISPLAY_STRINGS):
+    for i, sname in enumerate(DISPLAY_STRINGS_FA if frameadv else DISPLAY_STRINGS):
         b[off(STRTAB + 0x14 * i):off(STRTAB + 0x14 * i) + len(sname)] = sname.encode("ascii")
 
 
@@ -2167,7 +2219,7 @@ QR_COUNTS = 0x3D2F20
 QR_STR = 0x3D2DD0 + 3 * 0x14
 
 
-def quickreset_code():
+def quickreset_code(exit_target=0x33b4c0):
     f_hi, f_lo = hi_lo(PRACTICE_FLAG)
     h_hi, h_lo = hi_lo(IN_PAD)
     tb_hi, tb_lo = hi_lo(QR_TAB)
@@ -2185,8 +2237,10 @@ def quickreset_code():
     addu $a0, $s4, $zero
     jal {QRC:#x}
     nop
-qe_out:
     j 0x33b4c0
+    nop
+qe_out:
+    j {exit_target:#x}
     nop
 """
     src = f"""
@@ -3333,8 +3387,8 @@ qt_out:
     return opt_asm(src, QT)
 
 
-def patch_quickreset(b, off):
-    code = quickreset_code()
+def patch_quickreset(b, off, hitbox=False):
+    code = quickreset_code(HB.HB_SELECT if hitbox else 0x33b4c0)
     assert len(code) <= QT - QR, len(code)
     for a, n in ((QR, len(code)), (QR_TAB, 8 * len(QR_POS))):
         assert off(a + n) <= ELF_OFF + ELF_FILESZ
@@ -3355,6 +3409,198 @@ def patch_quickreset(b, off):
     assert old.startswith(b"COMMAND" + bytes(1)), old
     b[off(QR_STR):off(QR_STR) + 0x14] = b"QUICK RESET".ljust(0x14, bytes(1))
     return len(code)
+
+
+# ---- practice REPLAY label with the INPUT display on (found 2026-11-24 with ATG's paused emulator: sprite queue entry 96x16 at u=96, v=368) ----
+# The practice replay/record code (0x33B5xx) draws the word REPLAY (top right, x = 0x20 + 368 * side, y = 16) as ONE 96x16 sprite taken from the rect
+# (96, 368, 96, 16) at 0x3D2778 through `jal 0x302AE0` (0x33B970), i.e. from the atlas that is resident in normal fights (set 3).  The INPUT display keeps
+# SPR03 (set 7) resident (tracker byte 0x1CB0C73 == 7); at (96, 368) that atlas holds the letters V W X Y Z [ -> garbage text.  READY / RECORDING... go through the
+# text routine 0x3396F0, which indexes ASCII glyphs at the same positions in both atlases, so they stay readable.  Wrapper: with the tracker at 7 the word is drawn
+# as six 16x16 glyphs of the SPR03 grey font (u = 16 * (c & 15), v = 0x180 + 16 * ((c >> 4) - 2)) through the INPUT module's sprite helper IN_SPR
+# (a0 = x, a1 = y - 16 (0x302AE0 subtracts 16 from y itself: queue entry y = 0 for y = 16), t1 = u, t2 = v); otherwise the original call.
+RL_CODE = 0x3AF440
+RL_TAB = 0x3AF4E0                       # 6 x (u16 u, u16 v): R E P L A Y
+RL_SITE = (0x33B970, 0x0C0C0AB8)        # jal 0x302ae0
+RL_GLYPHS = ((32, 0x1B0), (80, 0x1A0), (0, 0x1B0), (192, 0x1A0), (16, 0x1A0), (144, 0x1B0))
+
+
+def replaylabel_code():
+    t_hi, t_lo = hi_lo(0x1CB0C73)
+    tb_hi, tb_lo = hi_lo(RL_TAB)
+    src = f"""
+    lui $t8, {t_hi:#x}
+    lbu $t9, {sx(t_lo)}($t8)
+    addiu $t7, $zero, 7
+    bne $t9, $t7, rl_orig
+    nop
+    addiu $sp, $sp, -0x30
+    sd $ra, 0x28($sp)
+    sd $s0, 0x20($sp)
+    sd $s1, 0x18($sp)
+    sd $s2, 0x10($sp)
+    sd $s3, 0x08($sp)
+    addu $s0, $a1, $zero
+    addu $s1, $a2, $zero
+    lui $s2, {tb_hi:#x}
+    addiu $s2, $s2, {sx(tb_lo)}
+    addiu $s3, $zero, 6
+rl_loop:
+    lhu $t1, 0($s2)
+    lhu $t2, 2($s2)
+    addu $a0, $s0, $zero
+    addiu $a1, $s1, -16
+    jal {IN_SPR:#x}
+    nop
+    addiu $s0, $s0, 16
+    addiu $s2, $s2, 4
+    addiu $s3, $s3, -1
+    bnez $s3, rl_loop
+    nop
+    ld $s3, 0x08($sp)
+    ld $s2, 0x10($sp)
+    ld $s1, 0x18($sp)
+    ld $s0, 0x20($sp)
+    ld $ra, 0x28($sp)
+    jr $ra
+    addiu $sp, $sp, 0x30
+rl_orig:
+    j 0x302ae0
+    nop
+"""
+    return opt_asm(src, RL_CODE)
+
+
+def patch_replaylabel(b, off):
+    code = replaylabel_code()
+    assert len(code) <= RL_TAB - RL_CODE, len(code)
+    for a, n in ((RL_CODE, len(code)), (RL_TAB, 4 * len(RL_GLYPHS))):
+        assert off(a + n) <= ELF_OFF + ELF_FILESZ
+        assert not any(b[off(a):off(a) + n]), f"replay label region {a:#x} not zero"
+    b[off(RL_CODE):off(RL_CODE) + len(code)] = code
+    struct.pack_into("<%dH" % (2 * len(RL_GLYPHS)), b, off(RL_TAB), *[x for g in RL_GLYPHS for x in g])
+    site, orig = RL_SITE
+    assert struct.unpack_from("<I", b, off(site))[0] == orig, hex(site)
+    struct.pack_into("<I", b, off(site), 0x0C000000 | (RL_CODE >> 2))
+    return len(code)
+
+
+# ---- practice SELECT BUTTON function HIT BOX (value 4): in-game collision box display, by Vans (see hitbox_ps2.py) ----
+# The drawer sits over dead stdio functions at 0x1141C0..0x1147B0 and is called from the main loop's last draw call (0x1A1A6C).
+# The SELECT handler's exit (0x33B41C, our quick reset entry stub) continues at HB_SELECT for values other than 3; HB_SELECT toggles the
+# on/off byte for value 4.  Value strings: slot 4 of 0x3D2DD0 ("COMMAND CLEAR", unreachable, no other reference) is renamed.
+HB_STR = 0x3D2DD0 + HB.HB_VALUE * 0x14
+HB_TR = 0x3AF400              # trampoline of the collision box test (zero run 0x3AF32C..0x3AF500)
+HB_FILT = 0x3AF330            # draw order: kind filter at have_kind
+HB_AXC = 0x3AF360             # draw order: origin cross only in the last pass
+HB_NEXT = 0x3AFB40            # draw order: next pass / finish (zero run 0x3AFB24..0x3AFC00)
+HB_ORDER = 0x3AFBF0           # kind of each pass, back to front
+HB_PASSES = (8, 2, 3, 4, 5, 6, 1, 7)   # body (green), hurt (blue), counter (light blue), guard (turquoise), projectile (orange), receiver (white), attack (red), throw (magenta, over attack as odabugs)
+
+
+def patch_hitbox(b, off):
+    n = len(HB.HB_WORDS)
+    lo, hi = HB.HB_BASE, HB.HB_BASE + 4 * n
+    assert off(hi) <= ELF_OFF + ELF_FILESZ
+    for site in (QR, QT, DATA):
+        assert not lo <= site < hi
+    b[off(lo):off(hi)] = struct.pack("<%dI" % n, *HB.HB_WORDS)
+    # collision (body) box hidden while [+0x283] & 0x10 (odabugs: playerFlags.collisionActive), e.g. during a roll: the slot-6 test
+    # at 0x114294 jumps to a trampoline that also reads that byte (t1 = fighter, t2 = [+0x8C], delay slot loads t3)
+    tr = opt_asm(f"""
+    srl $t3, $t3, 2
+    or $t2, $t2, $t3
+    andi $t2, $t2, 4
+    .word 0x000A480B
+    sll $t1, $t1, 6
+    or $s4, $s4, $t1
+    addiu $s5, $s2, 0x314
+    bnez $s4, tr_go
+    nop
+    j 0x11440c
+    nop
+tr_go:
+    j 0x1142b4
+    nop
+""", HB_TR)
+    assert off(HB_TR + len(tr)) <= ELF_OFF + ELF_FILESZ and not any(b[off(HB_TR):off(HB_TR) + len(tr)]), "HB_TR not free"
+    b[off(HB_TR):off(HB_TR) + len(tr)] = tr
+    for a_, orig, new in ((0x114294, 0x000A5082, 0x08000000 | (HB_TR >> 2)), (0x114298, 0x314A0001, 0x924B0283)):
+        assert struct.unpack_from("<I", b, off(a_))[0] == orig, hex(a_)
+        struct.pack_into("<I", b, off(a_), new)
+    site, orig, new = HB.HB_HOOK
+    assert struct.unpack_from("<I", b, off(site))[0] == orig, hex(site)
+    struct.pack_into("<I", b, off(site), new)
+    # draw order: one pass over all objects per box kind (back to front), instead of object by object.  PASS (word 0x11462C, unused in his listing) = the current
+    # pass; HB_ORDER = kind per pass.  3 hooks: have_kind (0x114300) skips slots of another kind, `clear` (0x114418) starts the next pass or finishes,
+    # `axis` (0x1143B8) draws the origin cross only in the last pass.
+    o_hi, o_lo = hi_lo(HB_ORDER)
+    flt = opt_asm(f"""
+    lui $t1, 0x11
+    lw $t2, 0x462c($t1)
+    lui $t3, {o_hi:#x}
+    addu $t3, $t3, $t2
+    lbu $t3, {sx(o_lo)}($t3)
+    sll $t3, $t3, 4
+    bne $t0, $t3, f_skip
+    nop
+    j 0x114304
+    nop
+f_skip:
+    j 0x1143ac
+    nop
+""", HB_FILT)
+    nxt = opt_asm(f"""
+    lui $t1, 0x11
+    lw $t2, 0x462c($t1)
+    addiu $t2, $t2, 1
+    sltiu $t3, $t2, {len(HB_PASSES)}
+    beqz $t3, p_done
+    sw $t2, 0x462c($t1)
+    lui $s0, 0x9b
+    addiu $s0, $s0, 0x6bc0
+    lw $s2, 0($s0)
+    j 0x114244
+    nop
+p_done:
+    sw $zero, 0x462c($t1)
+    lui $t0, 0x9b
+    addiu $t0, $t0, 0x6bc0
+    j 0x114420
+    nop
+""", HB_NEXT)
+    axc = opt_asm(f"""
+    lui $t1, 0x11
+    lw $t2, 0x462c($t1)
+    addiu $t3, $zero, {len(HB_PASSES) - 1}
+    bne $t2, $t3, ax_skip
+    nop
+    .word 0x792A4680
+    j 0x1143c0
+    nop
+ax_skip:
+    j 0x11440c
+    nop
+""", HB_AXC)
+    for a_, code_, cap in ((HB_FILT, flt, 0x30), (HB_AXC, axc, 0x30), (HB_NEXT, nxt, 0xB0)):
+        assert len(code_) <= cap, (hex(a_), len(code_))
+        assert off(a_ + len(code_)) <= ELF_OFF + ELF_FILESZ and not any(b[off(a_):off(a_) + len(code_)]), f"{a_:#x} not free"
+        b[off(a_):off(a_) + len(code_)] = code_
+    assert not any(b[off(HB_ORDER):off(HB_ORDER) + len(HB_PASSES)])
+    b[off(HB_ORDER):off(HB_ORDER) + len(HB_PASSES)] = bytes(HB_PASSES)
+    assert struct.unpack_from("<I", b, off(0x11462C))[0] == 0
+    for a_, orig, new in ((0x114300, 0x3C090011, 0x08000000 | (HB_FILT >> 2)),
+                          (0x114418, 0x3C08009B, 0x08000000 | (HB_NEXT >> 2)),
+                          (0x1143B8, 0x3C090011, 0x08000000 | (HB_AXC >> 2)),
+                          (0x1143BC, 0x792A4680, 0x00000000)):
+        assert struct.unpack_from("<I", b, off(a_))[0] == orig, hex(a_)
+        struct.pack_into("<I", b, off(a_), new)
+    counts = bytes(b[off(QR_COUNTS):off(QR_COUNTS) + 13])
+    assert counts == bytes([4] + [3] * 10 + [2, 2]), counts.hex()      # as patch_quickreset left them
+    b[off(QR_COUNTS):off(QR_COUNTS) + 11] = bytes([5] + [4] * 10)      # value 4 selectable (ACTION 11 keeps 2)
+    old = bytes(b[off(HB_STR):off(HB_STR) + 0x14])
+    assert old.startswith(b"COMMAND CLEAR" + bytes(1)), old
+    b[off(HB_STR):off(HB_STR) + 0x14] = b"HIT BOX".ljust(0x14, bytes(1))
+    return 4 * n
 
 
 # ---- OPTIONS > GRAPHIC SETTING: new row "DISPLAY : DAMAGE/STUN/BOTH/OFF" (byte 0x9CB287, saved at save+0x294FE) ----
@@ -3587,7 +3833,7 @@ def patch_optdisplay(b, off):
 # draws into the currently bound menu texture (white glyphs); the vertex colour (t0 = 0xAARRGGBB, factor about 0.94) tints it to the UI red cb0608.
 # Glyph rects: name-entry table GLYPHTAB (same shapes as the Character Setting alphabet), index = position in NAME_ORDER.
 # Bump MG_VERSION for every release, then re-run export_hack_patches.py (gfx_hacks.json) and rebuild the patcher.
-MG_VERSION = "1.5"
+MG_VERSION = "1.6"
 VER_CAVE = 0x3B2F00
 VER_SITE = 0x330D40                  # addiu sp,sp,-0xa0 ; sd ra,0x90(sp)   (task fn of the main menu draw)
 VER_X, VER_Y = 540.0, 409.0          # pixels (640 x 448), left edge of the first glyph; inside the black area, lower right
@@ -3647,7 +3893,318 @@ PRACTICE_STAGES = ("display", "pmlayout", "input", "movelist", "gauge", "quickre
 STAGE_LAST_GROUP = {1: 3, 2: 4, 3: 5, 4: 6, 5: 7, 6: 8, 7: 9}
 
 
-def patch_elf(elf: bytes, unlock=True, rematch=True, samechars=True, skiplogos=True, display=True, optdisplay=True, stage=7, qt_stub=False, version=True):
+def patch_frameadv(b, off):
+    """frame advantage display in practice (frameadv_ps2.py): logic at FA_CODE, drawer at FA_DRAW, state at FA_DATA (all zero run)."""
+    tick = opt_asm(FA.tick_source(PRACTICE_FLAG), FA.FA_CODE)
+    draw = opt_asm(FA.draw_source(), FA.FA_DRAW)
+    assert FA.FA_CODE + len(tick) <= FA.FA_DRAW, hex(len(tick))
+    assert FA.FA_DRAW + len(draw) <= FA.FA_DATA, hex(len(draw))
+    for a, code in ((FA.FA_CODE, tick), (FA.FA_DRAW, draw)):
+        assert not any(b[off(a):off(a) + len(code)]), f"frameadv region {a:#x} not zero"
+        b[off(a):off(a) + len(code)] = code
+    assert not any(b[off(FA.FA_DATA):off(FA.FA_DATA) + FA.FA_DATA_SIZE]), "frameadv data not zero"
+    return len(tick), len(draw)
+
+
+GA_LIST_SHORT = 0x3D2F38          # vanilla GUARD list of the other ACTIONs: OFF, DOWN, S-SHIFT
+
+
+def patch_ukemi(b, off):
+    """practice UKEMI option (ukemi_ps2.py): own tech routine in the dummy AI, DOWN removed from the GUARD lists, option byte reset and saved."""
+    code = opt_asm(UK.ukemi_source(GA_MODE, GA_RNG), UK.UK_CODE)
+    assert UK.UK_CODE + len(code) <= UK.UK_SAVE, hex(len(code))
+    sv = opt_asm(UK.save_source(OPT_ST_SAVE), UK.UK_SAVE)
+    ld = opt_asm(UK.load_source(OPT_ST_LOAD), UK.UK_LOAD)
+    assert UK.UK_SAVE + len(sv) <= UK.UK_LOAD and UK.UK_LOAD + len(ld) <= UKM_ST
+    for a, c in ((UK.UK_CODE, code), (UK.UK_SAVE, sv), (UK.UK_LOAD, ld)):
+        assert not any(b[off(a):off(a) + len(c)]), f"ukemi region {a:#x} not zero"
+        b[off(a):off(a) + len(c)] = c
+    assert b[off(UK.UK_CHOICE)] == 0
+    cm = opt_asm(UK.commit_source(), UK.UK_COMMIT)
+    assert not any(b[off(UK.UK_COMMIT):off(UK.UK_COMMIT) + len(cm)]) and len(cm) <= 0x80
+    b[off(UK.UK_COMMIT):off(UK.UK_COMMIT) + len(cm)] = cm
+    csite, corig = UK.UK_COMMIT_SITE
+    assert struct.unpack_from("<I", b, off(csite))[0] == corig, hex(csite)
+    struct.pack_into("<I", b, off(csite), 0x0C000000 | (UK.UK_COMMIT >> 2))
+    fl = opt_asm(UK.filter_source(), UK.UK_FILTER)
+    assert not any(b[off(UK.UK_FILTER):off(UK.UK_FILTER) + len(fl)]) and len(fl) <= 0x80
+    b[off(UK.UK_FILTER):off(UK.UK_FILTER) + len(fl)] = fl
+    s1, o1, s2, o2 = UK.UK_FILTER_SITE
+    assert struct.unpack_from("<II", b, off(s1)) == (o1, o2) and s2 == s1 + 4
+    struct.pack_into("<II", b, off(s1), 0x08000000 | (UK.UK_FILTER >> 2), 0)
+    site, orig = UK.UK_HOOK
+    assert struct.unpack_from("<I", b, off(site))[0] == orig, hex(site)
+    struct.pack_into("<I", b, off(site), 0x0C000000 | (UK.UK_CODE >> 2))
+    # GUARD lists without DOWN (4): the full list of the ACTIONs in GA_ACTIONS and the short list (OFF, DOWN, S-SHIFT) of the others
+    assert bytes(b[off(GA_LIST):off(GA_LIST) + GA_NVAL + 1]) == bytes(list(range(GA_NVAL)) + [0xFF])
+    new = [v for v in range(GA_NVAL) if v != 4] + [0xFF]
+    b[off(GA_LIST):off(GA_LIST) + GA_NVAL + 1] = bytes(new + [0])
+    for i in range(16):
+        if struct.unpack_from("<I", b, off(GA_PTR_TAB + 4 * i))[0] == GA_LIST:
+            assert b[off(GA_CNT_TAB + i)] == GA_NVAL, i
+            b[off(GA_CNT_TAB + i)] = GA_NVAL - 1
+    assert bytes(b[off(GA_LIST_SHORT):off(GA_LIST_SHORT) + 4]) == bytes([0, 4, 7, 0])
+    b[off(GA_LIST_SHORT):off(GA_LIST_SHORT) + 4] = bytes([0, 7, 0xFF, 0])
+    for i in range(16):
+        if struct.unpack_from("<I", b, off(GA_PTR_TAB + 4 * i))[0] == GA_LIST_SHORT:
+            assert b[off(GA_CNT_TAB + i)] == 3, i
+            b[off(GA_CNT_TAB + i)] = 2
+    # default reset clears 13 bytes (0x9CB240..0x24C, incl. INPUT and UKEMI)
+    assert struct.unpack_from("<I", b, off(0x336E28))[0] == 0x2406000C
+    struct.pack_into("<I", b, off(0x336E28), 0x2406000D)
+    # save / load: the OPTIONS DISPLAY stubs are wrapped
+    for (site, _orig), stub, new_stub in ((OPT_SAVE_HOOK, OPT_ST_SAVE, UK.UK_SAVE), (OPT_LOAD_HOOK, OPT_ST_LOAD, UK.UK_LOAD)):
+        assert struct.unpack_from("<I", b, off(site))[0] == 0x0C000000 | (stub >> 2), hex(site)
+        struct.pack_into("<I", b, off(site), 0x0C000000 | (new_stub >> 2))
+    return len(code)
+
+
+# ---- practice menu row UKEMI (under GUARD), rows 22 px apart (ATG 2026-11-24) ----
+# Visual order: 0 CONTROL .. 4 GUARD, 5 UKEMI, 6 LIFE, 7 GAUGE, 8 DISPLAY, 9 INPUT, 10 STAGE SELECT, 11 SELECT BUTTON, 12 COMMAND, 13 KEY SETTING,
+# 14 CHARACTER SELECT;
+# y = PM_BASE_Y + 22 * v.  Cursor index i = v + 1 (0 GAME START, 16 GAME EXIT).  Applied on top of patch_pmlayout (which inserted INPUT).
+# New tables (the old places have no room for one more entry): draw jump table 30 entries (UKEMI label 0x1C / value 0x1D), input jump
+# table 13 entries (UKEMI = index 6), cursor position table 17 entries (6 lui/addiu users).  Label: SPR01.GRC page 1 at UKM_RECT, right of
+# GUARD, where the vertical "SELECT BUTTON TO DEFAULT" text was (removed from the menu since the INPUT row); the rect is 19 px high, drawn 8 px lower.
+UKM_PITCH = 22
+UKM_JT_DRAW = 0x3B2400
+UKM_JT_IN = 0x3B2480
+UKM_CURSOR = 0x3B2500
+UKM_RECT = 0x3B25A0
+UKM_STR = 0x3B2600
+UKM_ST = 0x3B2100                 # stubs: +0 rowy, +0x40 after (up to 0xC0), +0x100 cmdy, +0x140 dlab, +0x180 dval, +0x220 input
+UKM_RECT_UVWH = (181, 268, 75, 19)
+UKM_LABEL_DY = 8
+UKM_CURSOR_SITES = ((0x3392E4, 0x3392F4), (0x339308, 0x339310), (0x339D60, 0x339D68), (0x339D6C, 0x339D74),
+                    (0x339D98, 0x339DA0), (0x339DA4, 0x339DAC))
+
+
+def _mul22(dst, src):
+    """dst = 22 * src (uses $t8 / $t9)"""
+    return f"""
+    sll $t9, {src}, 4
+    sll $t8, {src}, 2
+    addu $t9, $t9, $t8
+    sll $t8, {src}, 1
+    addu {dst}, $t9, $t8
+"""
+
+
+def _row_pair(lt, vt, y):
+    return f"""
+    lui $a0, 0x34
+    addiu $a0, $a0, -0x7480
+    addu $a1, $zero, $zero
+    addiu $a2, $zero, {lt:#x}
+    addiu $a3, $zero, -0x120
+    addiu $t0, $zero, {y:#x}
+    jal 0x336ea0
+    addiu $t1, $zero, 0x40
+    lui $a0, 0x34
+    addiu $a0, $a0, -0x7480
+    addiu $a1, $zero, 1
+    addiu $a2, $zero, {vt:#x}
+    addiu $a3, $zero, 0x2e0
+    addiu $t0, $zero, {y:#x}
+    jal 0x336ea0
+    addiu $t1, $zero, 0x200
+"""
+
+
+def ukemi_menu_stubs():
+    assert UKM_PITCH == 22
+    yin, yuk = PM_BASE_Y + 9 * UKM_PITCH, PM_BASE_Y + 5 * UKM_PITCH
+    u_hi, u_lo = hi_lo(UK.UK_ADDR)
+    r_hi, r_lo = hi_lo(UKM_RECT)
+    s_hi, s_lo = hi_lo(UKM_STR)
+    a = UKM_ST
+    src = {
+        # row y of the vanilla rows (v1 = row 0..9): 22 * v1, from LIFE on one row lower (UKEMI), from STAGE SELECT on two (+ INPUT)
+        a: _mul22("$s0", "$v1") + f"""
+    addiu $s0, $s0, {PM_BASE_Y}
+    slti $at, $v1, 5
+    bnez $at, ry_out
+    nop
+    addiu $s0, $s0, {UKM_PITCH}
+    slti $at, $v1, 8
+    bnez $at, ry_out
+    nop
+    addiu $s0, $s0, {UKM_PITCH}
+ry_out:
+    jr $ra
+    nop
+""",
+        # after the DISPLAY pair (counter 0x11): INPUT and UKEMI objects
+        a + 0x40: f"""
+    addiu $t2, $zero, 0x11
+    bne $a0, $t2, af_out
+    nop
+    addiu $sp, $sp, -0x30
+    sd $ra, 0x20($sp)
+{_row_pair(0x1A, 0x1B, yin)}
+{_row_pair(0x1C, 0x1D, yuk)}
+    ld $ra, 0x20($sp)
+    addiu $sp, $sp, 0x30
+af_out:
+    j 0x338190
+    nop
+""",
+        # COMMAND / KEY SETTING / CHARACTER SELECT (v1 = 0..2): y = BASE + 22 * (12 + v1), then the object constructor (ra = caller)
+        a + 0x100: _mul22("$t0", "$v1") + f"""
+    j 0x336ea0
+    addiu $t0, $t0, {PM_BASE_Y + 12 * UKM_PITCH}
+""",
+        a + 0x140: f"""
+    lui $a0, {r_hi:#x}
+    addiu $a0, $a0, {sx(r_lo)}
+    daddu $a1, $s2, $zero
+    jal 0x302ae0
+    addiu $a2, $s1, {UKM_LABEL_DY}
+    j 0x3392bc
+    nop
+""",
+        # value: "-----" (vanilla string 0x3D2E50) while the option has no effect: CONTROL not CPU, or ACTION 7 / 8 / >= 11 (same rule as the tech routine)
+        a + 0x180: """
+    lui $t2, 0x9d
+    lbu $t3, -0x4dc0($t2)
+    bnez $t3, uv_dash
+    nop
+    lbu $t3, -0x4dbf($t2)
+    addiu $t4, $zero, 7
+    beq $t3, $t4, uv_dash
+    nop
+    addiu $t4, $zero, 8
+    beq $t3, $t4, uv_dash
+    nop
+    sltiu $t4, $t3, 11
+    beqz $t4, uv_dash
+    nop
+""" + f"""
+    lui $v0, {u_hi:#x}
+    lbu $v1, {sx(u_lo)}($v0)
+    sltiu $t0, $v1, 4
+    bnez $t0, uv_ok
+    nop
+    addu $v1, $zero, $zero
+uv_ok:
+    sll $a2, $v1, 4
+    sll $v1, $v1, 2
+    addu $a2, $a2, $v1
+    lui $t1, {s_hi:#x}
+    addiu $t1, $t1, {sx(s_lo)}
+    addu $a2, $a2, $t1
+    b uv_draw
+    nop
+uv_dash:
+    lui $a2, 0x3d
+    addiu $a2, $a2, 0x2e50
+uv_draw:
+    daddu $a0, $s2, $zero
+    jal 0x3394c0
+    daddu $a1, $s1, $zero
+    j 0x3392bc
+    nop
+""",
+        # input: locked like the value
+        a + 0x220: """
+    lui $t2, 0x9d
+    lbu $t3, -0x4dc0($t2)
+    bnez $t3, ui_out
+    nop
+    lbu $t3, -0x4dbf($t2)
+    addiu $t4, $zero, 7
+    beq $t3, $t4, ui_out
+    nop
+    addiu $t4, $zero, 8
+    beq $t3, $t4, ui_out
+    nop
+    sltiu $t4, $t3, 11
+    beqz $t4, ui_out
+    nop
+""" + f"""
+    lui $v0, {u_hi:#x}
+    lb $a0, {sx(u_lo)}($v0)
+    daddu $a2, $s1, $zero
+    jal 0x3366d0
+    addiu $a1, $zero, 4
+    lui $v1, {u_hi:#x}
+    sb $v0, {sx(u_lo)}($v1)
+ui_out:
+    j 0x3388dc
+    nop
+""",
+    }
+    return {k: opt_asm(v, k) for k, v in src.items()}
+
+
+def patch_ukemi_menu(b, off):
+    rd = lambda a: struct.unpack_from("<I", b, off(a))[0]
+
+    def wr(a, v):
+        struct.pack_into("<I", b, off(a), v)
+    st = ukemi_menu_stubs()
+    keys = sorted(st) + [UKM_ST + 0x280]
+    for a, c in st.items():
+        assert a + len(c) <= keys[keys.index(a) + 1], (hex(a), len(c))
+        assert not any(b[off(a):off(a) + len(c)]), f"ukemi menu stub region {a:#x} not zero"
+        b[off(a):off(a) + len(c)] = c
+    a = UKM_ST
+    assert rd(0x33806C) == 0x0C000000 | (PM_ST_ROWY >> 2)
+    wr(0x33806C, 0x0C000000 | (a >> 2))
+    assert rd(0x3380D0) == 0x08000000 | (PM_ST_AFTER >> 2)
+    wr(0x3380D0, 0x08000000 | ((a + 0x40) >> 2))
+    assert rd(0x33810C) == 0x0C000000 | (0x336EA0 >> 2)
+    wr(0x33810C, 0x0C000000 | ((a + 0x100) >> 2))
+    # jump tables: draw 28 -> 30 entries, input 12 -> 13 (UKEMI = index 6, after GUARD)
+    ents = [rd(PM_JT_DRAW + 4 * i) for i in range(28)] + [a + 0x140, a + 0x180]
+    in_ents = [rd(PM_JT_IN + 4 * i) for i in range(12)]
+    in_ents = in_ents[:6] + [a + 0x220] + in_ents[6:]
+    for base, e in ((UKM_JT_DRAW, ents), (UKM_JT_IN, in_ents)):
+        assert not any(b[off(base):off(base) + 4 * len(e)])
+        for i, x in enumerate(e):
+            wr(base + 4 * i, x)
+    for lui_a, addiu_a, old, new in ((0x338BBC, 0x338BC0, PM_JT_DRAW, UKM_JT_DRAW), (0x338534, 0x33853C, PM_JT_IN, UKM_JT_IN)):
+        oh, ol = hi_lo(old)
+        assert rd(lui_a) == 0x3C030000 | oh and rd(addiu_a) == 0x24630000 | ol, hex(lui_a)
+        nh, nl = hi_lo(new)
+        wr(lui_a, 0x3C030000 | nh)
+        wr(addiu_a, 0x24630000 | nl)
+    # bounds and cursor indices (everything from STAGE SELECT on moves one down)
+    for site, old, new in ((0x338BAC, 0x2C61001C, 0x2C61001E), (0x338528, 0x2C41000C, 0x2C41000D),
+                           (0x3384CC, 0x24050010, 0x24050011), (0x3384F4, 0x24050010, 0x24050011),
+                           (0x338988, 0x2403000C, 0x2403000D), (0x338998, 0x2402000D, 0x2402000E),
+                           (0x3389A4, 0x2402000F, 0x24020010), (0x3389B0, 0x2402000E, 0x2402000F),
+                           (0x33939C, 0x2402000F, 0x24020010),
+                           # cursor after returning from a sub-screen: vanilla 0xB (COMMAND, FUN_00339A40) and 0xC (KEY SETTING); patch_pmlayout
+                           # (INPUT row) never moved them, so the cursor came back one row too high (ATG's "cursor not on COMMAND" bug)
+                           (0x339A44, 0x2404000B, 0x2404000D), (0x33993C, 0x2403000C, 0x2403000E)):
+        assert rd(site) == old, (hex(site), hex(rd(site)))
+        wr(site, new)
+    # cursor position table, 17 entries (the bar sits 24 px below the row y, like the vanilla table)
+    tab = [(416, 64)] + [(32, PM_BASE_Y + 24 + UKM_PITCH * (i - 1)) for i in range(1, 16)] + [(416, 456)]
+    assert not any(b[off(UKM_CURSOR):off(UKM_CURSOR) + 8 * len(tab)])
+    for i, (x, y) in enumerate(tab):
+        struct.pack_into("<ii", b, off(UKM_CURSOR + 8 * i), x, y)
+    for lui_a, addiu_a in UKM_CURSOR_SITES:
+        lw, aw = rd(lui_a), rd(addiu_a)
+        assert lw & 0xFFFF == 0x3D and (lw >> 26) == 0x0F and aw & 0xFFFF in (0x2830, 0x2834), hex(lui_a)
+        k = (aw & 0xFFFF) - 0x2830
+        nh, nl = hi_lo(UKM_CURSOR + k)
+        wr(lui_a, (lw & 0xFFFF0000) | nh)
+        wr(addiu_a, (aw & 0xFFFF0000) | nl)
+    # GUARD label rect (entry 14, x 96 w 96) narrowed to its art (ends at x 180): it showed the left edge of the UKEMI label at x 181
+    assert struct.unpack_from("<4h", b, off(0x3D2640 + 12 * 14)) == (96, 256, 96, 32)
+    struct.pack_into("<h", b, off(0x3D2640 + 12 * 14 + 4), UKM_RECT_UVWH[0] - 96)
+    # label rect and value strings
+    assert not any(b[off(UKM_RECT):off(UKM_RECT) + 12]) and not any(b[off(UKM_STR):off(UKM_STR) + 0x50])
+    struct.pack_into("<6h", b, off(UKM_RECT), *UKM_RECT_UVWH, 1, 0)
+    for i, t in enumerate(UK.UK_STRINGS):
+        b[off(UKM_STR + 0x14 * i):off(UKM_STR + 0x14 * i) + len(t)] = t.encode("ascii")
+
+
+def patch_elf(elf: bytes, hitbox=True, unlock=True, rematch=True, samechars=True, skiplogos=True, display=True, optdisplay=True, stage=7, qt_stub=False, version=True, frameadv=True, ukemi=True):
+    global CX_CMD_ROW
+    CX_CMD_ROW = 13 if ukemi else 12           # cursor index of the COMMAND row (the UKEMI row shifts it by one)
     b = bytearray(elf)
     off = lambda v: v - ELF_BASE + ELF_OFF
     if skiplogos:
@@ -3656,15 +4213,18 @@ def patch_elf(elf: bytes, unlock=True, rematch=True, samechars=True, skiplogos=T
         patch_version(b, off)
     if display:
         active = set(PRACTICE_STAGES[:STAGE_LAST_GROUP[stage]])
-        patch_display(b, off)
+        patch_display(b, off, frameadv)
         patch_pmlayout(b, off)
         patch_input(b, off)
+        patch_replaylabel(b, off)
         if "cmdenemy" in active:
             patch_cmdenemy(b, off)
         if "cmdedit" in active:
             patch_cmdedit(b, off)
         if "quickreset" in active:
-            patch_quickreset(b, off)
+            patch_quickreset(b, off, hitbox)
+            if hitbox:
+                patch_hitbox(b, off)
             if qt_stub:            # bisect aid: keep the QR code but make the per-frame fixer QT a no-op
                 struct.pack_into("<II", b, off(QT), 0x03E00008, 0)
         else:                      # the HUD wrapper still calls QT every frame: leave a harmless "jr ra / nop"
@@ -3678,6 +4238,9 @@ def patch_elf(elf: bytes, unlock=True, rematch=True, samechars=True, skiplogos=T
             patch_guardall(b, off)
     if optdisplay:
         patch_optdisplay(b, off)
+    if ukemi and display and optdisplay and "guardall" in set(PRACTICE_STAGES[:STAGE_LAST_GROUP[stage]]):
+        patch_ukemi(b, off)
+        patch_ukemi_menu(b, off)
     if samechars:
         patch_samechars(b, off)
     if rematch:
@@ -3691,7 +4254,9 @@ def patch_elf(elf: bytes, unlock=True, rematch=True, samechars=True, skiplogos=T
             assert struct.unpack_from("<I", b, off(site))[0] == orig, hex(site)
         struct.pack_into("<I", b, off(HOOK_INIT[0]), 0x0C000000 | (STUB1 >> 2))
         struct.pack_into("<I", b, off(HOOK_LOAD[0]), 0x0C000000 | (STUB2 >> 2))
-    code = assemble(display)
+    if display and frameadv:
+        patch_frameadv(b, off)
+    code = assemble(display, display and frameadv)
     assert len(code) < 0x800, len(code)   # cave 0x3AC000-0x3AC7FF, strings at 0x3AC800
     # verify target regions are zero (and inside the file-backed segment)
     for a, n in ((DATA, 0x80), (CAVE, len(code))):
@@ -3741,6 +4306,7 @@ def main():
     ap.add_argument("--elf"); ap.add_argument("--out")
     ap.add_argument("--iso"); ap.add_argument("--out-iso")
     ap.add_argument("--dump", action="store_true")
+    ap.add_argument("--no-hitbox", action="store_true", help="skip HIT BOX (SELECT BUTTON value 4) in practice")
     ap.add_argument("--no-unlock", action="store_true", help="skip the unlock-all patch")
     ap.add_argument("--no-rematch", action="store_true", help="skip the quick-rematch patch")
     ap.add_argument("--no-samechars", action="store_true", help="skip the same-chars patch")
@@ -3758,7 +4324,7 @@ def main():
     else:
         elf = open(a.elf, "rb").read()
         lba = size = None
-    patched, code = patch_elf(elf, unlock=not a.no_unlock, rematch=not a.no_rematch, samechars=not a.no_samechars, skiplogos=not a.no_skiplogos, version=not a.no_version, display=not a.no_display, optdisplay=not a.no_optdisplay, stage=a.stage, qt_stub=a.qt_stub)
+    patched, code = patch_elf(elf, hitbox=not a.no_hitbox, unlock=not a.no_unlock, rematch=not a.no_rematch, samechars=not a.no_samechars, skiplogos=not a.no_skiplogos, version=not a.no_version, display=not a.no_display, optdisplay=not a.no_optdisplay, stage=a.stage, qt_stub=a.qt_stub)
     print(f"cave {CAVE:#x}: {len(code):#x} bytes; hooks patched at {[hex(x) for p in HOOKS for x in p]}")
     if a.dump:
         md = capstone.Cs(capstone.CS_ARCH_MIPS, capstone.CS_MODE_MIPS64 + capstone.CS_MODE_LITTLE_ENDIAN)

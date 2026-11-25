@@ -93,17 +93,72 @@ the middle of the logo, so the logo is fitted into 214 x 121 px and centred on t
 it (Mad Gear: `dx 3`, because its visual mass is left of its bounding box).  A logo is at most 178 px wide.  Bigger would
 need the engine's sprite table (not found).
 
+### 3.3c Character colour palettes (`DATA\PACK\FIGHT.BCC` and `FIGHTA.BCC`, entries 16-62)
+
+```
+python -I gfx_palettes.py list    "KOFXI JP.iso"                    # 47 characters, palette size, sprite found
+python -I gfx_palettes.py export  "KOFXI JP.iso" 00 00_ash.pal      # or .png = swatch sheet
+python -I gfx_palettes.py preview "KOFXI JP.iso" 00 0 ash_a.png     # idle frame in colour 1 (A)
+python -I gfx_convert.py patch SRC.iso DST.iso --palettes DIR       # every <id>_<name>.PAL of DIR
+```
+
+* Loader (JP decompile): `FUN_0012ED00` -> `FUN_0032C8B0(5, DAT_0035C2F0[char id])` -> `FUN_0012E9C0` copies colour
+  `block+5` (0x200 bytes) to RAM `0x4121F0 + slot*0x200`.  Resource slot 5 = `FIGHT.BCC` or `FIGHTA.BCC`, so both files
+  are patched.  Colour index 12+ = PS2 COLOR EDIT colours from the save (`0x9BF240 + char*0x400`), not in these files.
+* Entry = character id 0x00-0x27 -> 16 + id, 0x29-0x2F -> 56 + (id - 0x29).  6144 bytes = 12 colours x 16 sub-palettes x
+  16 x u16 (Shen Woo 6016).  Same layout as the arcade `.PAL` files; identical to the arcade palettes for 33 of the 40
+  arcade characters, Duck King, Ralf, Clark, Mary, Shingo, Shion and Magaki differ (PS2-edited palettes).  The loose
+  `DATA\PAL\*.PAL` / `PAL2` files are the arcade originals and are NOT what the loader uses.
+* u16 = BGR555: R = bits 10-14, B = bits 0-4 (the opposite of the OPENING / HUD ARGB1555 entries).  Bit 15 is kept.
+  Entry 0 of every sub-palette (row) is transparent.
+* Rows: byte 0 of a sprite descriptor (section 11 of the UNI file) is the row the sprite is drawn with.  Row 0 = body,
+  row 4 = the purple-blue state after Ash's LDM > 236236E follow-up (every character, 4 sprites), higher rows =
+  projectiles, flames, helpers.  Rows 1-3 are used by no sprite and showed no visible effect in tests (electric, fire
+  and ice hits, LDM).
+* Space: SNK's GRC stream of the palette range is about 9 KB larger than ours, so re-encoding makes room; a full
+  channel swap of all 12 colours still shrinks the file.  Attract logo and palettes can be patched together.
+* Preview: descriptor 0 of section 11 in `DATA\PLA|PLA2\xxxx.UNI` is the first idle frame of every character (Yuri:
+  descriptor 1).  Section 22 = linear 4 bpp 8x8 tiles (32 bytes, low nibble first); a descriptor = u8[4] (+0 row,
+  +2 width, +3 height in tiles) then records `u16 tile, run, column, row` (vertical runs).  Everything is rendered at
+  run time from the user's ISO, no game graphics are shipped.  JP and US discs: same files.  The console data
+  (`DATA\PL|PL2`) has a few more or other sprites for some characters (Duck King's P-chan: console sprite 320, row 8;
+  in the arcade data it is not in Duck King's own UNI file but somewhere else); the preview uses the arcade data (`PLA`), a named entry `[sprite, name, "PL"]` in
+  `gfx_palette_fx.json` points to a console sprite.
+
+**GUI tab "Character palettes".**  Pick a character and a colour (1 A ... 12 Start+D) and click a swatch to change it;
+changed swatches get a red border, "Original" and "Yours" are shown side by side.  Pointing at a swatch highlights the
+pixels it colours.  Below the body there is an effect preview: a list of named sprites per character (projectiles,
+helpers such as Jenet's crew, Duck King's P-chan, Kula's Foxy and Diana, from `gfx_palette_fx.json`) plus the automatic
+"Ash LDM>236236E hit" entry; `<` `>` browses every effect sprite, "all sprites" also lists sprites in body colours.  The
+names right of each swatch row show which listed sprites use that row (several sprites can share a row; changing it
+changes all of them, as in the game).
+
+* This colour: copy from another colour, reset, import, and **export as a common palette file** with 256 colours
+  (16 rows x 16 entries): JASC `.pal` (Paint Shop Pro, GIMP, Aseprite, GraphicsGale, ...), `.gpl` (GIMP, Krita,
+  Inkscape) or `.act` (Photoshop).  Import reads these plus Microsoft RIFF `.pal`; entry 0 of each row and bit 15 are
+  always kept from the game data.  GIMP: Palettes > Import Palette > Palette file; GIMP saves the edited palette as
+  `.gpl` in its own palettes folder (`%APPDATA%\GIMP\<version>\palettes`), import that file back.
+* Whole character: import a palette with all 12 colours or a swatch PNG (16 cells wide, one row per sub-palette, any
+  cell size), export the game `.PAL` (same format as the arcade files), the swatch PNG or a preview PNG.
+* Every change is saved at once as `<id>_<name>.PAL` in the palettes folder (tab "Folders (optional)", default
+  `<ready folder>\palettes`); the file is removed again when it equals the original.  Tab 2 patches all files of that
+  folder into both BCC files and reads them back.
+* Curator mode (for maintaining the sprite list): `"curator": true` in `gfx_tool_config.json` shows "Add shown sprite
+  to list" / "Remove from list"; they write a `gfx_palette_fx.json` next to the exe / script that replaces whole
+  characters of the bundled list.
+
 ### 3.5 GUI and batch tool (`gfx_app.py`, `gfx_convert.py`)
 
 Start `toolkit/gfx_tool.bat` (needs Python 3; installs Pillow and numpy on first run).  All folders are chosen
-in the app and saved in `gfx_tool_config.json` next to it; the graphics folders (tab "Graphics folders (optional)")
-are only needed if you replace graphics.
+in the app and saved in `gfx_tool_config.json` next to it; the folders (tab "Folders (optional)") are only needed if
+you replace graphics or character colours.
 
 1. **Convert** tab: pick a graphic (keys `LOGO00-05`, `NEW00-10`, `e001-e122`, `attract`), pick your PNG.  The app checks
    size, format, transparency, colours and (for OPENING entries) whether it fits the maz slot, shows original and
    "as the game shows it" side by side, and offers to scale a wrong-size PNG or reduce colours when needed.  OK files are
    written to the ready folder as `KEY.png`.  Slot sizes and entry headers come from `gfx_catalog.json`, so no ISO is
-   needed for this step.
+   needed for this step.  The "Original" preview is decoded straight from the input ISO (`gfx_convert.extract_original`,
+   all 149 JP / 145 US targets), "Save original as PNG" writes it as a template, so nothing has to be exported first.
 2. **Patch** tab: input ISO, output ISO (new file, never the input), an optional graphics folder; every PNG whose name starts with a known
    key is listed, ticked files are written to the copy, then read back and compared.  Several OPENING entries share one
    OPENING.GRC; the app checks the total against its sector limit.  `e116` is the only entry tested in the emulator,

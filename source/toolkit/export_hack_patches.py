@@ -34,7 +34,7 @@ def gfx_patches(iso_path, key):
         if key == 'combo':
             jobs = [(PL.GRAPHIC_PATH, PL.graphic_plan(iso))]
         elif key == 'practice':
-            jobs = [(PL.PATH, PL.plan(iso, {'AUTO CHARACTER': 'DISPLAY', 'INPUT': 'INPUT'})),
+            jobs = [(PL.PATH, PL.plan(iso, {'AUTO CHARACTER': 'DISPLAY', 'INPUT': 'INPUT', 'UKEMI': 'UKEMI'})),
                     ]
             # KEY SETTING words (COMMAND ENEMY, QUICK RESET): practice menu atlas and the OPTIONS button config atlas
             jobs += [(p, PL.enemy_plan(iso, p, pg)) for p, pg in PL.ENEMY_TARGETS]
@@ -57,9 +57,10 @@ HACKS = [
     ('unlock', 'Unlock all characters', 'All 14 locked characters available (new saves and loaded saves).'),
     ('combo', 'Combo damage display', 'Shows "NN DMG" (and stun) under the HIT COMBO counter. Adds the row DISPLAY '
                                       '(DAMAGE / STUN / BOTH / OFF) to OPTIONS > GRAPHIC SETTING.'),
-    ('practice', 'Better practice mode', 'Practice menu: Display DMG/STUN, Display Inputs, list position & item rework, COUNTER option fix, '
-                                         'faster life recovery, quick reset, gauge MAX+SKILL, guard ALL / random guard, 2P can use the menu, '
-                                         'Triangle on COMMAND edits the other side, new key binds COMMAND ENEMY & QUICK RESET'),
+    ('practice', 'Better practice mode', 'Practice menu: Display DMG/STUN/frame advantage, Display Inputs, UKEMI row (back / forward / random), '
+                                         'list position & item rework, COUNTER option fix, faster life recovery, quick reset, gauge MAX+SKILL, '
+                                         'guard ALL / random guard, 2P can use the menu, Triangle on COMMAND edits the other side, '
+                                         'new key binds COMMAND ENEMY & QUICK RESET'),
     ('skiplogos', 'Skip intro logos', 'Skips the start-up logos except the SNK Playmore logo (LOGO04).'),
     ('version', 'Version display', 'Shows "V%s" (the Mad Gear version of this build) in red at the bottom right of the main menu.' % M.MG_VERSION),
 ]

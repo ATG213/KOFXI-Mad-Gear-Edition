@@ -1,0 +1,789 @@
+{
+ "00": [
+  [
+   540,
+   "236236P Orb"
+  ],
+  [
+   550,
+   "LDM>236236E Burning"
+  ],
+  [
+   379,
+   "[4],6P Projectile"
+  ]
+ ],
+ "01": [
+  [
+   742,
+   "Main effect"
+  ]
+ ],
+ "02": [
+  [
+   369,
+   "236236P"
+  ],
+  [
+   422,
+   "LDM"
+  ],
+  [
+   337,
+   "214C reflect"
+  ]
+ ],
+ "03": [
+  [
+   393,
+   "Grab Super 1"
+  ],
+  [
+   394,
+   "Grab Super 2"
+  ],
+  [
+   396,
+   "Grab Super 3"
+  ],
+  [
+   517,
+   "Energy"
+  ]
+ ],
+ "04": [
+  [
+   334,
+   "Ghost VFX"
+  ]
+ ],
+ "05": [
+  [
+   284,
+   "Main effect"
+  ],
+  [
+   300,
+   "Lightning Bolt"
+  ],
+  [
+   306,
+   "Energy Orb"
+  ],
+  [
+   317,
+   "Benimaru Collider"
+  ],
+  [
+   403,
+   "Lightning Bolt 2"
+  ],
+  [
+   204,
+   "236P Glow"
+  ],
+  [
+   216,
+   "Energy Orb 2"
+  ]
+ ],
+ "06": [
+  [
+   398,
+   "LDM Beam"
+  ],
+  [
+   196,
+   "Fire VFX"
+  ],
+  [
+   213,
+   "Burn Knuckle"
+  ],
+  [
+   317,
+   "Buster Wolf Fire"
+  ]
+ ],
+ "08": [
+  [
+   306,
+   "LDM VFX"
+  ],
+  [
+   320,
+   "P-chan",
+   "PL"
+  ]
+ ],
+ "09": [
+  [
+   356,
+   "Fireball VFX"
+  ],
+  [
+   376,
+   "Super Fireball VFX"
+  ]
+ ],
+ "0A": [
+  [
+   376,
+   "Air Fireball & 214P"
+  ],
+  [
+   318,
+   "Fireball VFX"
+  ],
+  [
+   328,
+   "Charge Fireball VFX"
+  ]
+ ],
+ "0B": [
+  [
+   283,
+   "Hit VFX 2"
+  ],
+  [
+   272,
+   "Hit VFX 1"
+  ],
+  [
+   316,
+   "Rose"
+  ],
+  [
+   182,
+   "Venom Strike 1"
+  ],
+  [
+   238,
+   "Venom Strike 2"
+  ],
+  [
+   195,
+   "63214K VFX"
+  ]
+ ],
+ "0C": [
+  [
+   525,
+   "Crew"
+  ],
+  [
+   470,
+   "236236P super"
+  ],
+  [
+   405,
+   "Heart"
+  ],
+  [
+   456,
+   "Sparkle (yellow)"
+  ],
+  [
+   346,
+   "Sparkle (blue)"
+  ],
+  [
+   395,
+   "Tornado VFX"
+  ]
+ ],
+ "0D": [
+  [
+   243,
+   "236236K"
+  ],
+  [
+   294,
+   "Dust VFX"
+  ],
+  [
+   319,
+   "214K-A VFX"
+  ],
+  [
+   314,
+   "263236B VFX 2"
+  ],
+  [
+   345,
+   "Ground Energy VFX"
+  ]
+ ],
+ "0E": [
+  [
+   263,
+   "Cape"
+  ]
+ ],
+ "0F": [
+  [
+   412,
+   "Bugged Throw Sprite"
+  ]
+ ],
+ "11": [
+  [
+   538,
+   "Desert Eagle VFX"
+  ],
+  [
+   689,
+   "Dust Cloud VFX"
+  ]
+ ],
+ "12": [
+  [
+   427,
+   "Phoenix"
+  ],
+  [
+   218,
+   "Fireball"
+  ],
+  [
+   349,
+   "Shining Crystal Bit"
+  ],
+  [
+   578,
+   "Burning Athena"
+  ]
+ ],
+ "13": [
+  [
+   542,
+   "Nikuman"
+  ],
+  [
+   473,
+   "Energy VFX"
+  ]
+ ],
+ "14": [
+  [
+   518,
+   "Laser"
+  ],
+  [
+   666,
+   "Athena (intro / win)"
+  ],
+  [
+   658,
+   "Athena burning"
+  ],
+  [
+   713,
+   "Mascot Balloon"
+  ],
+  [
+   689,
+   "Hearts"
+  ],
+  [
+   827,
+   "Nikuman"
+  ],
+  [
+   334,
+   "Energy VFX"
+  ]
+ ],
+ "15": [
+  [
+   302,
+   "Puncher Vision"
+  ],
+  [
+   490,
+   "Wind VFX"
+  ]
+ ],
+ "16": [
+  [
+   443,
+   "Main effect"
+  ],
+  [
+   496,
+   "Dog"
+  ],
+  [
+   460,
+   "Jacket"
+  ],
+  [
+   475,
+   "Rose"
+  ]
+ ],
+ "18": [
+  [
+   498,
+   "Hammer"
+  ],
+  [
+   515,
+   "Yo-yo"
+  ],
+  [
+   382,
+   "Yo-yo 2"
+  ],
+  [
+   119,
+   "Claw"
+  ],
+  [
+   349,
+   "Stun baton"
+  ],
+  [
+   443,
+   "Knife"
+  ]
+ ],
+ "19": [
+  [
+   246,
+   "236236P VFX"
+  ],
+  [
+   185,
+   "236P VFX"
+  ],
+  [
+   267,
+   "Ground VFX"
+  ],
+  [
+   361,
+   "Umbrella"
+  ]
+ ],
+ "1A": [
+  [
+   214,
+   "Energy VFX"
+  ],
+  [
+   351,
+   "Cloak"
+  ]
+ ],
+ "1B": [
+  [
+   314,
+   "Fire VFX"
+  ],
+  [
+   316,
+   "Dust VFX"
+  ]
+ ],
+ "1C": [
+  [
+   470,
+   "Ice (throw)"
+  ],
+  [
+   305,
+   "Breath"
+  ],
+  [
+   384,
+   "236236P"
+  ],
+  [
+   582,
+   "Frozen Kula"
+  ],
+  [
+   613,
+   "Normal Hair"
+  ],
+  [
+   614,
+   "Normal Outfit"
+  ],
+  [
+   13,
+   "Unknown Transform VFX"
+  ],
+  [
+   83,
+   "Guard"
+  ],
+  [
+   187,
+   "j.C"
+  ],
+  [
+   241,
+   "5C(f)"
+  ],
+  [
+   425,
+   "j.236K"
+  ],
+  [
+   487,
+   "3C"
+  ],
+  [
+   563,
+   "Diana"
+  ],
+  [
+   659,
+   "Foxy"
+  ]
+ ],
+ "1D": [
+  [
+   385,
+   "LDM Laser"
+  ],
+  [
+   397,
+   "Dust VFX"
+  ],
+  [
+   262,
+   "Bunker Buster 1"
+  ],
+  [
+   257,
+   "Bunker Buster 2"
+  ],
+  [
+   346,
+   "Vapour Cannon"
+  ],
+  [
+   332,
+   "Steam VFX"
+  ],
+  [
+   373,
+   "Spark VFX"
+  ]
+ ],
+ "1E": [
+  [
+   199,
+   "Flame 1"
+  ],
+  [
+   222,
+   "Flame 2"
+  ],
+  [
+   347,
+   "Orochinagi Hand"
+  ],
+  [
+   368,
+   "Orochinagi"
+  ],
+  [
+   407,
+   "Ground Fire"
+  ],
+  [
+   489,
+   "Burning Kyo"
+  ]
+ ],
+ "1F": [
+  [
+   287,
+   "236P VFX"
+  ],
+  [
+   367,
+   "236236P"
+  ],
+  [
+   406,
+   "LDM VFX"
+  ],
+  [
+   496,
+   "Small Flame"
+  ]
+ ],
+ "20": [
+  [
+   207,
+   "Unknown Hit VFX"
+  ]
+ ],
+ "22": [
+  [
+   367,
+   "Boomerang"
+  ],
+  [
+   390,
+   "Energy VFX"
+  ],
+  [
+   462,
+   "Boomerang Fire VFX"
+  ],
+  [
+   479,
+   "Blue Boomerang VFX"
+  ]
+ ],
+ "23": [
+  [
+   261,
+   "LDM hit effect"
+  ],
+  [
+   281,
+   "Rose"
+  ],
+  [
+   365,
+   "Energy VFX"
+  ],
+  [
+   186,
+   "Dust VFX"
+  ],
+  [
+   204,
+   "Reppuken"
+  ],
+  [
+   224,
+   "Reflector VFX"
+  ]
+ ],
+ "24": [
+  [
+   229,
+   "MMA Fighter"
+  ]
+ ],
+ "25": [
+  [
+   327,
+   "Fire pillar"
+  ],
+  [
+   380,
+   "Crow"
+  ],
+  [
+   391,
+   "Demon Jazu"
+  ],
+  [
+   179,
+   "Ice spike"
+  ],
+  [
+   345,
+   "Gun VFX"
+  ],
+  [
+   160,
+   "Dust VFX"
+  ],
+  [
+   243,
+   "236C VFX"
+  ]
+ ],
+ "26": [
+  [
+   506,
+   "Debris"
+  ],
+  [
+   495,
+   "Lightning"
+  ],
+  [
+   507,
+   "Debris 2"
+  ]
+ ],
+ "27": [
+  [
+   471,
+   "Purple projectile"
+  ],
+  [
+   525,
+   "Blue hands"
+  ],
+  [
+   488,
+   "LDM Burst"
+  ],
+  [
+   514,
+   "Suited Magaki"
+  ]
+ ],
+ "29": [
+  [
+   436,
+   "Fire"
+  ],
+  [
+   382,
+   "LDM Mai"
+  ],
+  [
+   215,
+   "Fan VFX"
+  ],
+  [
+   385,
+   "Fan"
+  ]
+ ],
+ "2A": [
+  [
+   478,
+   "Tiger"
+  ],
+  [
+   324,
+   "Fireball"
+  ],
+  [
+   359,
+   "Purple Kick VFX"
+  ],
+  [
+   444,
+   "Purp. FB"
+  ],
+  [
+   349,
+   "28K"
+  ],
+  [
+   423,
+   "Hand"
+  ]
+ ],
+ "2B": [
+  [
+   219,
+   "Projectile 1"
+  ],
+  [
+   274,
+   "Projectile 2"
+  ],
+  [
+   336,
+   "Woman 1"
+  ],
+  [
+   343,
+   "Woman 2"
+  ]
+ ],
+ "2C": [
+  [
+   468,
+   "Raging Storm"
+  ],
+  [
+   513,
+   "Rashomon text"
+  ],
+  [
+   523,
+   "Coat"
+  ],
+  [
+   514,
+   "Man1"
+  ],
+  [
+   525,
+   "Man2"
+  ]
+ ],
+ "2D": [
+  [
+   491,
+   "Ferret"
+  ],
+  [
+   438,
+   "Fireball"
+  ]
+ ],
+ "2E": [
+  [
+   442,
+   "Laser"
+  ],
+  [
+   478,
+   "Energy ball"
+  ],
+  [
+   451,
+   "Muscle man"
+  ],
+  [
+   378,
+   "Muscle man (blue)"
+  ],
+  [
+   27,
+   "Unknown"
+  ],
+  [
+   431,
+   "LDM Muscle Glow"
+  ]
+ ],
+ "2F": [
+  [
+   554,
+   "Fire pillar"
+  ],
+  [
+   196,
+   "Diagonal flame"
+  ],
+  [
+   291,
+   "Fireball"
+  ],
+  [
+   400,
+   "Flame 1"
+  ],
+  [
+   584,
+   "Orochinagi Hand"
+  ],
+  [
+   504,
+   "Burning Kyo"
+  ],
+  [
+   445,
+   "Ground Fire"
+  ]
+ ]
+}

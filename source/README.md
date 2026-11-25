@@ -11,7 +11,7 @@ program ROM `ax3201p01.fmem1`. Requirements: Python 3 (the GUI needs `tkinter`, 
 
 | Folder | Contents |
 |---|---|
-| `toolkit/` | PS2: KOF XI PS2 Toolkit (GUI `gfx_app.py`, command line `gfx_convert.py`), the hack byte tables `gfx_hacks.json` / `gfx_hacks_us.json`, and the generators `make_combo_dmg_ps2.py` (builds all PS2 hacks, despite its name) and `export_hack_patches.py` |
+| `toolkit/` | PS2: KOF XI PS2 Toolkit (GUI `gfx_app.py`, command line `gfx_convert.py`, character palettes `gfx_palettes.py` / `gfx_palette_tab.py`), the hack byte tables `gfx_hacks.json` / `gfx_hacks_us.json`, and the generators `make_combo_dmg_ps2.py` (builds all PS2 hacks, despite its name; parts in `hitbox_ps2.py`, `frameadv_ps2.py`, `ukemi_ps2.py`) and `export_hack_patches.py` |
 | `patcher/` | PS2: self-patcher GUI (`madgear_patcher.py`), delta tools (`isodiff.py`, `make_patcher.py`), PPF writer (`make_ppf.py`) |
 | `arcade/hacks/` | Atomiswave: the hack scripts, `build_arcade_rom.py` (original ROM in, Mad Gear ROM out), cipher and checksum tools |
 | `arcade/patcher/` | Atomiswave: self-patcher GUI (`aw_patcher.py`) and its delta builder |
@@ -25,7 +25,28 @@ program ROM `ax3201p01.fmem1`. Requirements: Python 3 (the GUI needs `tkinter`, 
 
 Pick your disc image, tick the hacks you want, click Patch: a new ISO is written, your original is never changed.
 Replacing graphics (logos, title screen, menu colours) is optional and described in the
-[graphics workflow](docs/ps2-graphics-workflow.md). All folders are chosen in the app; settings are saved to
+[graphics workflow](docs/ps2-graphics-workflow.md); the originals are shown straight from your disc image and can be
+saved as PNG templates.
+
+### Character palettes
+
+The tab **Character palettes** recolours the 12 colours of all 47 characters (the palettes live in
+`PACK/FIGHT.BCC` and `FIGHTA.BCC`, JP and US disc). Everything is read from your own disc image:
+
+- a preview of each character (first frame of the idle stance) and of their effects, Original and Yours side by side;
+  named effect sprites per character (projectiles, flames, helpers such as Jenet's crew, Duck King's P-chan, Kula's
+  Foxy and Diana) and the purple-blue state after Ash's LDM follow-up;
+- click a swatch to change it, point at it to see which pixels it colours; every row shows which listed sprites use
+  it; copy, import or reset single colours or the whole character;
+- export / import as common palette files (JASC `.pal` for GIMP, Aseprite, Paint Shop Pro and others, `.gpl` for GIMP /
+  Krita / Inkscape, `.act` for Photoshop), as a swatch PNG or in the game's own `.PAL` format;
+- changes are saved in the palettes folder and patched into the new ISO on the Patch tab.
+
+Details, formats and the reverse engineering behind it: [graphics workflow, section 3.3c](docs/ps2-graphics-workflow.md).
+
+### Toolkit settings
+
+All folders are chosen in the app; settings are saved to
 `gfx_tool_config.json` next to the script (or `~/.kofxi_gfx_tool.json`). Menu labels use Arial Black from the Windows font
 folder; set `KOFXI_LABEL_FONT` to a `.ttf` path to use another font. `toolkit/build_exe.bat` builds a single-file exe with
 PyInstaller (no exe is distributed with this repository).
@@ -63,7 +84,9 @@ No extra packages needed. Details, the patcher and the checksum fix for real har
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE): free for any noncommercial use, modification and sharing; commercial use is
-not permitted. This covers the code and docs of this repository only, not the game or its assets (no SNK Playmore data
-is included; you need your own disc dump). The cipher tables in `arcade/hacks/aw_crypto.py` are ported from MAME and stay
+[CC BY-NC-SA 4.0](LICENSE): free for any noncommercial use, modification and sharing with credit to ATG; changed
+versions must use the same license; commercial use is not permitted. The HIT BOX drawer is based on the code of Vans
+([kofxi-international](https://github.com/vans1belmont/kofxi-international), CC BY-NC-SA 4.0, used with his permission),
+its colours follow the hitbox viewer of [odabugs](https://github.com/odabugs). This covers the code and docs of this
+repository only, not the game or its assets (no SNK Playmore data is included; you need your own disc dump). The cipher tables in `arcade/hacks/aw_crypto.py` are ported from MAME and stay
 under their original BSD-3-Clause license (see the header of that file). Unofficial, not affiliated with SNK Playmore.

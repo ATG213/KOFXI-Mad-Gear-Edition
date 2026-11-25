@@ -171,6 +171,35 @@ What the core does (all verified by savestate diffs, see ps2-hacking-notes.md se
 * gauges via `GA` (see below); a per-frame fixer `QT` (`0x3AF900`, called from the HUD wrapper) clears the freeze bit 27 of +0x494 for 10 frames and
   (the former 240-frame safety net, freeze record live but no helper in hit-stop mode 0x17FA60 -> controller reset + task fns restored, was removed: it fired during throws/knockdowns and made the victim stand up without a hit anim.)
 
+## HIT BOX (practice, SELECT BUTTON value 4)
+In-game collision box display. The drawer (380 words at `0x1141C0..0x1147B0`, over dead Sony stdio functions that nothing references), its SELECT stub, the box-kind
+tables and the chain are by Vans (vans1belmont, [kofxi-international](https://github.com/vans1belmont/kofxi-international), CC BY-NC-SA 4.0), used with his permission;
+`toolkit/hitbox_ps2.py` holds the words and the changes against his listing. Hooks: `jal 0x1A7D60` at `0x1A1A6C` -> `jal 0x1141C0` (draws after the frame, then continues),
+the SELECT handler exit `0x33B41C` (the quick reset entry stub) continues at the select stub `0x114508` for values other than 3. The SELECT BUTTON value count bytes at
+`0x3D2F20` are 5 for ACTION 0 and 4 for ACTION 1..10 (the last two entries keep 2), and the string slot 4 (formerly "COMMAND CLEAR") reads "HIT BOX". His immediates for the select value
+(`0x11420C`, `0x114508`) are 4 here because value 3 is QUICK RESET.
+Mad Gear changes on top (`make_combo_dmg_ps2.py`, `patch_hitbox`): colours follow the odabugs viewer (hurt 0,0,255; counter 127,127,255; guard 0,255,255; projectile hurt
+255,128,0; attack red; throw magenta; collision green); draw order back to front (body, hurt, counter, guard, projectile, receiver, attack, throw; `HB_PASSES`); the collision
+box is hidden whenever the game switches it off (`[+0x283] & 0x10`: rolls and other actions) through a trampoline at `0x3AF400`. Further caves: `0x3AF330`, `0x3AF360`,
+`0x3AF440`, `0x3AFB40`. Flag `--no-hitbox` leaves it out.
+
+## Frame advantage display (practice, Mad Gear 1.6)
+`toolkit/frameadv_ps2.py`, builder flag `frameadv=True`. After every contact (hit, block, throw, trade) both sides' first free frame is measured;
+when both sides can act again, each side shows its own value under its own HP bar as an extra line of the DMG/STUN block: "+3" blue, "-3" red,
+"+0" white. Air hits, knockdowns, techs, throws, Guard Cancel rolls and blowbacks are counted like any other contact. Free = first frame in which
+the character is not busy (attack `+0x490 & 3`, hit stop `+0x494` bit 27, reaction `+0x494` bit 0, guard stun `+0x530 & 0x400`, airborne pose
+`+0x27E == 2`, uninterruptible movement `+0x48C & BUSY_48C`); the values match the frame data of the community wiki. Code `fa_tick` at `0x3A8000`,
+`fa_draw` at `0x3A8400`, state at `0x3A9800`, called from the HUD wrapper; frames are counted by an own counter, so pausing does not count. Practice
+DISPLAY values: ALL (default) / DMG+STN / FRAMES / OFF; the OPTIONS DISPLAY setting of normal matches is unchanged.
+
+## UKEMI (practice, Mad Gear 1.6)
+`toolkit/ukemi_ps2.py`, builder flag `ukemi=True`. New practice row UKEMI under GUARD: OFF / BACK / FWD / RANDOM, independent of the GUARD setting
+(the old GUARD value DOWN is gone; a saved DOWN becomes GUARD OFF + UKEMI BACK). Option byte `0x9CB24C`, saved at save+`0x294FF`. The dummy AI hook at
+`0x33764C` calls `0x3B1E00`, which presses A+B every second frame in the tech window (16 frames before landing to 1 frame before; fixes the
+vanilla bug that a fast juggle fall was often not teched). Forward tech: an entry filter at `0x16A220` (`0x3B2780`) replaces the direction of
+every AI input call of that side in the same frame, so the guard AI cannot overwrite it; `jal 0x1726f0` at `0x184D84` -> `0x3B2700` clears it at
+the end of the AI frame. The row shows "-----" and is locked when CONTROL is not CPU or for ACTION 7/8/11+.
+
 ## GAUGE option redesign (practice, byte 0x9CB246)
 0 NORMAL, 1 SKILL, 2 MAX, 3 LEADER MAX, 4 MAX+SKILL (new; cycle count at `0x3387A8`, value strings in the cave table `GTAB 0x3AFC00`, draw patch
 `0x33915C/164`). Vanilla forced the gauges every frame (`FUN_0018D010`); now only LEADER MAX does (the two forcing sites read a flag byte `DATA+0xD0`

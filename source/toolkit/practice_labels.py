@@ -93,6 +93,9 @@ def plan(iso, labels):
     lba, sectors, stream, d = M._load(iso, PATH)
     nd = bytearray(d)
     for old_name, text in labels.items():
+        if old_name == 'UKEMI':
+            ukemi_label(nd, text)
+            continue
         x, y, w, h = RECTS[old_name]
         img = render(text, w, h)
         if old_name == 'AUTO CHARACTER' and 'INPUT' in labels and img[:, 120:].any():
@@ -101,6 +104,35 @@ def plan(iso, labels):
             o = PAGE_BASE + 0x400 + (y + r) * 256 + x
             nd[o:o + w] = img[r].tobytes()
     return lba, sectors, stream, d, bytes(nd)
+
+
+# new UKEMI row (make_combo_dmg_ps2.UKM_RECT_UVWH = (181, 268, 75, 19), drawn 8 px lower): right of GUARD, where the vertical
+# "SELECT BUTTON TO DEFAULT" text was (that text is no longer shown since the INPUT row removed it from the menu)
+UKEMI_VTEXT = (228, 266, 24, 22)        # x, y, w, h of the part of the vertical text under the label (erased); erasing all of it
+                                        # (246 rows) made SPR01 compress so well that the game's in-place GRC decompression overran its
+                                        # unread input and crashed (min. read/write margin -6032 vs -4305 of 1.6f, 2026-11-24)
+UKEMI_DEST = (181, 268, 75, 19)
+UKEMI_SRC_ROW = 8                       # first used row of a rendered 32 px label
+
+
+def ukemi_label(nd, text='UKEMI'):
+    x0, y0, w0, h0 = UKEMI_VTEXT
+    for r in range(h0):
+        o = PAGE_BASE + 0x400 + (y0 + r) * 256 + x0
+        nd[o:o + w0] = bytes(w0)
+    x, y, w, h = UKEMI_DEST
+    for r in range(h):
+        o = PAGE_BASE + 0x400 + (y + r) * 256 + x
+        if any(nd[o:o + w]):
+            raise SystemExit('UKEMI label area is not empty at row %d' % (y + r))
+    img = render(text, w + 6, 32)
+    cols = np.where(img.any(axis=0))[0]
+    img = img[UKEMI_SRC_ROW:UKEMI_SRC_ROW + h, cols.min():cols.max() + 1]
+    if img.shape[1] > w or render(text, w + 6, 32)[:UKEMI_SRC_ROW].any() or render(text, w + 6, 32)[UKEMI_SRC_ROW + h:].any():
+        raise SystemExit('UKEMI label does not fit %dx%d' % (w, h))
+    for r in range(h):
+        o = PAGE_BASE + 0x400 + (y + r) * 256 + x
+        nd[o:o + img.shape[1]] = img[r].tobytes()
 
 
 def preview(nd, labels, out_png):
@@ -230,6 +262,7 @@ def main(argv=None):
     ap.add_argument('iso')
     ap.add_argument('--display', help='new text for the AUTO CHARACTER row label')
     ap.add_argument('--input', help='text of the new INPUT row label (right half of the DISPLAY strip)')
+    ap.add_argument('--ukemi', help='text of the new UKEMI row label (right of GUARD)')
     ap.add_argument('--option-display', action='store_true', help='graphic setting page: DISPLAY label + value words')
     ap.add_argument('--command-enemy', action='store_true', help='KEY SETTING: ENEMY word of the new COMMAND ENEMY value')
     ap.add_argument('--preview')
@@ -240,6 +273,8 @@ def main(argv=None):
         labels['AUTO CHARACTER'] = a.display.upper()
     if a.input:
         labels['INPUT'] = a.input.upper()
+    if a.ukemi:
+        labels['UKEMI'] = a.ukemi.upper()
     if not labels and not a.option_display and not a.command_enemy:
         raise SystemExit('nothing to do')
     jobs = []          # (path, lba, sectors, stream, old, new)

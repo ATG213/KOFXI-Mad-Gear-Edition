@@ -12,7 +12,7 @@ import threading
 import zlib
 
 MAGIC = b'KMGP1\0'
-VERSION = '1.5'
+VERSION = '1.6'
 TITLE = 'KOF XI Mad Gear Edition Patcher v%s' % VERSION
 
 

@@ -27,12 +27,15 @@ import gfx_hacks as H                   # noqa: E402
 import kofxi_gfx as G                   # noqa: E402
 import gfx_menu as M                    # noqa: E402
 import gfx_targets as T                 # noqa: E402
+import gfx_palettes as PAL               # noqa: E402
+import gfx_palette_tab as PT             # noqa: E402
 
 CONFIG_NAMES = ([os.environ['KOFXI_GFX_CONFIG']] if os.environ.get('KOFXI_GFX_CONFIG') else []) + [
     os.path.join(T.APP_DIR, 'gfx_tool_config.json'), os.path.join(os.path.expanduser('~'), '.kofxi_gfx_tool.json')]
-DEFAULTS = {'originals': '', 'replacements': '', 'ready': '', 'iso_in': '', 'iso_out': '', 'last_dir': '',
+DEFAULTS = {'replacements': '', 'ready': '', 'iso_in': '', 'iso_out': '', 'last_dir': '',
             'fit': False, 'scale': 1.0, 'dx': 0, 'dy': 0, 'auto_fix': False, 'hacks': [], 'ui_color': '',
-            'hide_anim': False, 'black_bg': False, 'frame_color': '', 'margin_color': '', 'clock_rot': 90, 'font_orange': '', 'font_teal': ''}
+            'hide_anim': False, 'black_bg': False, 'frame_color': '', 'margin_color': '', 'clock_rot': 90, 'font_orange': '', 'font_teal': '',
+            'palettes': '', 'use_palettes': True}
 COLORS = {'error': '#b00020', 'warn': '#b86e00', 'ok': '#1b7f2a', 'info': '#222222'}
 PREVIEW_BOX = (300, 250)
 ROT_LABELS = {0: 'none', 90: '90 deg clockwise', 180: '180 deg', 270: '90 deg counter-clockwise'}
@@ -97,7 +100,6 @@ class App:
         self.cfg = load_config()
         self.q = queue.Queue()
         self.targets = T.all_targets()
-        self.orig_index = {}
         self.repl_index = {}
         self.result = None
         self.check_id = 0
@@ -115,12 +117,16 @@ class App:
         self.auto_retry = False
         self.retry_patch = False
         self.tab_conv, self.tab_patch, self.tab_set = ttk.Frame(nb), ttk.Frame(nb), ttk.Frame(nb)
+        self.tab_pal = ttk.Frame(nb)
         nb.add(self.tab_conv, text='  1  Convert a graphic  ')
+        nb.add(self.tab_pal, text='  Character palettes  ')
         nb.add(self.tab_patch, text='  2  Patch into ISO  ')
-        nb.add(self.tab_set, text='  Graphics folders (optional)  ')
+        nb.add(self.tab_set, text='  Folders (optional)  ')
+        self.orig_cache = {}         # (iso, key) -> original graphic decoded from the ISO
         self.build_settings()
         self.build_convert()
         self.build_patch()
+        self.paltab = PT.PaletteTab(self, self.tab_pal)
         self.default_out()
         self.refresh_indexes()
         self.fill_targets()
@@ -134,8 +140,8 @@ class App:
         screen.  The log box at the bottom of tab 2 is the part that shrinks."""
         root = self.nb.winfo_toplevel()
         root.update_idletasks()
-        need_h = max(f.winfo_reqheight() for f in (self.tab_conv, self.tab_patch, self.tab_set)) + 70
-        need_w = max(f.winfo_reqwidth() for f in (self.tab_conv, self.tab_patch, self.tab_set)) + 30
+        need_h = max(f.winfo_reqheight() for f in (self.tab_conv, self.tab_patch, self.tab_set, self.tab_pal)) + 70
+        need_w = max(f.winfo_reqwidth() for f in (self.tab_conv, self.tab_patch, self.tab_set, self.tab_pal)) + 30
         w = min(max(1240, need_w), root.winfo_screenwidth() - 40)
         h = min(max(760, need_h), root.winfo_screenheight() - 90)
         root.geometry('%dx%d' % (w, h))
@@ -196,12 +202,14 @@ class App:
         return var
 
     def pull_settings(self):
-        for k in ('originals', 'replacements', 'ready', 'iso_in', 'iso_out'):
+        for k in ('replacements', 'ready', 'palettes', 'iso_in', 'iso_out'):
             v = getattr(self, 'var_' + k, None)
             if v is not None:
                 self.cfg[k] = v.get().strip()
         if getattr(self, 'hack_vars', None):
             self.cfg['hacks'] = [k for k, v in self.hack_vars.items() if v.get()]
+        if getattr(self, 'var_use_pal', None) is not None:
+            self.cfg['use_palettes'] = bool(self.var_use_pal.get())
         if getattr(self, 'var_ui_color', None) is not None:
             self.cfg['ui_color'] = self.var_ui_color.get().strip()
             self.cfg['hide_anim'] = bool(self.var_hide_anim.get())
@@ -217,15 +225,16 @@ class App:
         f = ttk.Frame(self.tab_set, padding=16)
         f.pack(fill='both', expand=True)
         f.columnconfigure(1, weight=1)
-        ttk.Label(f, text='Optional folders for replacing graphics (saved automatically)',
+        ttk.Label(f, text='Optional folders for replacing graphics and palettes (saved automatically)',
                   font=('Segoe UI', 10, 'bold')).grid(row=0, column=0, columnspan=3, sticky='w')
         ttk.Label(f, text='All of this is optional. You only need these folders if you want to replace game graphics '
-                  '(logos, title screen, ...). Game hacks and menu colours work with all three left empty.',
+                  '(logos, title screen, ...) or character colours. Game hacks and menu colours work with all of them '
+                  'left empty. The original graphics are read from your input ISO (tab 1: "Save original as PNG").',
                   foreground='#444', wraplength=900, justify='left').grid(row=1, column=0, columnspan=3, sticky='w',
                                                                          pady=(2, 10))
-        self.folder_row(f, 2, 'Original graphics (optional):', 'originals',
-                        'Folder with the original game graphics (e116.png, LOGO04.png, ...). '
-                        'Only used for the "Original" preview on tab 1.')
+        self.folder_row(f, 2, 'Palettes folder (optional):', 'palettes',
+                        'Where the "Character palettes" tab saves your changed palettes (<id>_<name>.PAL). '
+                        'Empty = <ready folder>\\palettes.')
         self.folder_row(f, 4, 'Your replacement files (optional):', 'replacements',
                         'Folder with your own PNGs. A file is picked up if its name starts with the graphic key, '
                         'e.g. e116_new.png.')
@@ -243,32 +252,12 @@ class App:
         self.pull_settings()
         self.refresh_indexes()
         self.fill_targets()
+        self.paltab.folder_changed()
 
     # ------------------------------------------------------------ indexes
     def refresh_indexes(self):
-        self.orig_index, self.repl_index = {}, {}
+        self.repl_index = {}
         rep = self.cfg['replacements']
-        if self.cfg['originals'] and os.path.isdir(self.cfg['originals']):
-            skip = os.path.normcase(os.path.abspath(rep)) if rep else None
-            best = {}
-            for d, dirs, files in os.walk(self.cfg['originals']):
-                if skip and os.path.normcase(os.path.abspath(d)).startswith(skip):
-                    dirs[:] = []
-                    continue
-                if os.path.basename(d).lower() in ('replacements', 'ready'):
-                    dirs[:] = []
-                    continue
-                for fn in files:
-                    if not fn.lower().endswith('.png'):
-                        continue
-                    k = T.match_name(fn)
-                    if not k:
-                        continue
-                    stem = os.path.splitext(fn)[0]
-                    score = 0 if stem.lower() == k.lower() else (1 if 'original' in stem.lower() else 2)
-                    if k not in best or score < best[k][0]:
-                        best[k] = (score, os.path.join(d, fn))
-            self.orig_index = {k: v[1] for k, v in best.items()}
         if rep and os.path.isdir(rep):
             for fn in os.listdir(rep):
                 p = os.path.join(rep, fn)
@@ -381,7 +370,14 @@ class App:
         for i, cap in enumerate(('Original', 'As the game will show it')):
             fr = ttk.Frame(pv)
             fr.pack(side='left', fill='both', expand=True, padx=3)
-            ttk.Label(fr, text=cap, foreground='#555').pack()
+            hd = ttk.Frame(fr)
+            hd.pack()
+            ttk.Label(hd, text=cap, foreground='#555').pack(side='left')
+            if i == 0:
+                self.lbl_orig_src = ttk.Label(hd, text='', foreground='#888')
+                self.lbl_orig_src.pack(side='left', padx=(4, 0))
+                ttk.Button(hd, text='Save original as PNG...', command=self.save_original).pack(side='left',
+                                                                                              padx=(10, 0))
             lb = ttk.Label(fr, anchor='center')
             lb.pack(fill='both', expand=True)
             self.pv.append(lb)
@@ -438,6 +434,7 @@ class App:
         self.var_file.set(f)
         if t.kind == 'attract':
             self.load_attract_params(f)
+        self.check_id += 1          # a check of the previously selected graphic that is still running is ignored
         self.result = None
         self.btn_quant.pack_forget()
         self.btn_conv.state(['disabled'])
@@ -551,21 +548,53 @@ class App:
         self.msg.configure(state='disabled')
 
     def show_original(self):
+        """Original graphic: decoded from the input ISO (tab 2) in the background."""
         t = self.cur_target()
-        p = self.orig_index.get(t.key) if t else None
         self.orig_img = None
+        self.lbl_orig_src.config(text='')
+        if not t:
+            return
+        iso = self.iso_for_checks()
+        if iso:
+            key = (os.path.normcase(os.path.abspath(iso)), t.key)
+            if key in self.orig_cache:
+                self.orig_img = self.orig_cache[key]
+                self.lbl_orig_src.config(text='(from your ISO)' if self.orig_img is not None else '(not on this disc)')
+                return
+            self.lbl_orig_src.config(text='(reading the ISO ...)')
+
+            def done(im, err, key=key, k=t.key):
+                if err is None:
+                    self.orig_cache[key] = im
+                cur = self.cur_target()
+                if cur and cur.key == k:
+                    self.orig_img = im if err is None else None
+                    self.lbl_orig_src.config(text='(from your ISO)' if self.orig_img is not None else
+                                             ('(not on this disc)' if err is None else '(could not read: %s)' % err))
+                    self.show_preview()
+            self.bg(lambda: C.extract_original(iso, t), done)
+
+    def save_original(self):
+        t, im = self.cur_target(), getattr(self, 'orig_img', None)
+        if not t or im is None:
+            messagebox.showinfo('Save original', 'Select a graphic and set the input ISO on tab 2 first.')
+            return
+        p = filedialog.asksaveasfilename(title='Save the original %s' % t.key, initialfile='%s_original.png' % t.key,
+                                         initialdir=self.cfg['replacements'] or self.cfg['last_dir'] or None,
+                                         defaultextension='.png', filetypes=[('PNG image', '*.png')])
         if p:
-            try:
-                self.orig_img = Image.open(p).convert('RGBA')
-            except Exception:
-                self.orig_img = None
+            im.save(p)
+            self.cfg['last_dir'] = os.path.dirname(p)
+            self.set_msgs([('ok', 'Saved %s (a template: same size and layout as the game expects)' % p)])
 
     def show_preview(self):
         bgn = self.var_bg.get()
         for i, im in enumerate((getattr(self, 'orig_img', None), self.result.game if self.result else None)):
             if im is None:
                 self.photo[i] = None
-                self.pv[i].config(image='', text='(no original found)' if i == 0 else '(no preview yet)')
+                self.pv[i].config(image='', text=('(set the input ISO on tab 2 to see the original)'
+                                                  if not self.iso_for_checks() else '') if i == 0 else
+                                  '(no preview yet)')
             else:
                 self.photo[i] = render_preview(im, bgn)
                 self.pv[i].config(image=self.photo[i], text='')
@@ -676,6 +705,12 @@ class App:
                             variable=self.hack_vars['clockspin']).grid(row=7, column=0, columnspan=5, sticky='w', padx=10,
                                                                       pady=(0, 6))
         self.update_swatches()
+        pf = ttk.LabelFrame(f, text='Character palettes')
+        pf.pack(fill='x', pady=(8, 0))
+        self.var_use_pal = tk.BooleanVar(value=bool(self.cfg.get('use_palettes', True)))
+        self.var_use_pal.trace_add('write', lambda *a: self.pull_settings())
+        self.cb_pal = ttk.Checkbutton(pf, text='', variable=self.var_use_pal)
+        self.cb_pal.pack(anchor='w', padx=10, pady=3)
         cols = ('use', 'key', 'file', 'desc', 'status')
         ttk.Label(f, text='Graphics to patch (only if you chose a graphics folder above):',
                   foreground='#444').pack(anchor='w', pady=(8, 0))
@@ -700,6 +735,7 @@ class App:
         self.var_iso_in.trace_add('write', lambda *a: self.default_out())
         self.var_iso_in.trace_add('write', lambda *a: self.update_variant())
         self.update_variant()
+        self.update_pal_row()
         self.var_pfolder.set(self.ready_dir())
         self.scan_patch()
 
@@ -734,6 +770,22 @@ class App:
             if not self.var_pfolder.get().strip():
                 self.var_pfolder.set(self.ready_dir())
             self.scan_patch()
+            self.update_pal_row()
+        elif self.nb.select() == str(self.tab_pal):
+            self.paltab.activate()
+
+    def palette_files(self):
+        """{char id: path} of the .PAL files in the palettes folder."""
+        return PAL.scan_folder(self.cfg.get('palettes', ''))
+
+    def update_pal_row(self):
+        files = self.palette_files()
+        if files:
+            names = ', '.join(PAL.CHAR_NAMES[c] for c in sorted(files))
+            self.cb_pal.config(text='Patch my character palettes (%d): %s' % (len(files), names), state='normal')
+        else:
+            self.cb_pal.config(text='No changed character palettes (edit them on the "Character palettes" tab)',
+                               state='disabled')
 
     def sig_diff(self, a, b):
         """Human readable difference of two folder_sig() values."""
@@ -985,7 +1037,8 @@ class App:
                 'Patch', 'These files have problems and will NOT be patched:\n\n%s\n\n(see the Check column)\n\n'
                 'Continue without them?' % ', '.join(skipped)):
             return
-        if not jobs and not hacks and not ui_color and not hide_anim and not black_bg and not frame_color and not margin_color and not font_orange and not font_teal:
+        pal_files = self.palette_files() if self.var_use_pal.get() else {}
+        if not jobs and not pal_files and not hacks and not ui_color and not hide_anim and not black_bg and not frame_color and not margin_color and not font_orange and not font_teal:
             messagebox.showerror('Patch', 'Nothing selected: tick a graphic, a game hack, a UI colour or the menu '
                                  'animations option. (Graphics: convert them on tab 1 first, then rescan here.)')
             return
@@ -997,12 +1050,14 @@ class App:
             if not messagebox.askyesno('Patch', '%s already exists.\nOverwrite it? (Close the emulator first.)' % dst):
                 return
             force = True
-        if not messagebox.askyesno('Patch', 'Create %s\nfrom %s\nwith %d graphic(s): %s\nand %d hack(s): %s\n\n'
+        if not messagebox.askyesno('Patch', 'Create %s\nfrom %s\nwith %d graphic(s): %s\nand %d hack(s): %s\n'
+                                   'character palettes: %s\n\n'
                                    'UI colour: %s, main menu animations: %s, black background: %s, '
                                    'frame colour: %s, outer margin: %s, orange alphabet: %s, turquoise alphabet: %s\n\n'
                                    'This copies about 2.5 GB. Continue?'
                                    % (os.path.basename(dst), os.path.basename(src), len(jobs),
                                       ', '.join(k for k, _ in jobs) or '-', len(hacks), ', '.join(hacks) or '-',
+                                      ', '.join(PAL.CHAR_NAMES[c] for c in sorted(pal_files)) or '-',
                                       ui_text or 'unchanged', 'switched off' if hide_anim else 'unchanged',
                                       'yes' if black_bg else 'no', fr_text or 'unchanged', mg_text or 'unchanged',
                                       fo_text or 'unchanged', ft_text or 'unchanged')):
@@ -1016,7 +1071,7 @@ class App:
         def run():
             C.apply_jobs(src, dst, jobs, fit=auto, allow_quant=auto, force=force, scale=sc, dx=dx, dy=dy, hacks=hacks, ui_color=ui_color, hide_anim=hide_anim, black_bg=black_bg, frame_color=frame_color,
                          margin_color=margin_color, font_orange=font_orange, font_teal=font_teal,
-                         log=lambda s: self.q.put(('log', s)),
+                         palettes=pal_files, log=lambda s: self.q.put(('log', s)),
                          progress=lambda d, t: self.q.put(('progress', d, t)))
 
         def done(res, err):
