@@ -119,7 +119,7 @@ driven by the owner's own pad (no second controller). Reuses the vanilla "both h
   (`0x33841C`, `0x338434`) and the two sub-screens (`0x339AD0`, `0x339C20`) too.
 The command editor itself still follows the edited side (see "Triangle on COMMAND").
 
-## GUARD: ALL (tested)
+## GUARD: ALL (tested; animation look-ahead after 1.6.1, tested)
 New value after S-SHIFT in the practice GUARD row (CONTROL CPU): the dummy blocks every attack whatever its height and switches its stance to match.
 How the game decides block vs hit (found with PINE, see ps2-hacking-notes.md section 10): the dummy in guard pose has a guard hurtbox of type 0x1C (standing) / 0x1D (crouching),
 copied to contact byte +0xC of the hit; `FUN_00180190` (called at `0x180674`) fails the guard when the attacker's `+0x280` has bit 0x80 (low, standing guard) or 0x40 (overhead,
@@ -127,15 +127,22 @@ crouching guard); those flags are only set in the frame the hitbox becomes activ
 stand heavy 47/49/48/50, crouch heavy 51/53/52/54 (pose / stun / recovery); switching the action inside the hit frame does not work (the game sets the old stun action again).
 `patch_guardall`:
 * **Pose before the hit** (the important part, the dummy must already be in the right stance when the hitbox appears):
-  STAND dummy: `GA_AI` (`0x3B0D00`, call at `0x140274` in `FUN_0013FAF0`, only runs while the AI expects an attack) turns the guard input from "back" into "down-back" when the attacker's
-  frame pose byte `+0x27E & 0xF` is 1 (crouch; 0 stand, 2 air) or the attack is a learned low.  CROUCH dummy: `GA_CR` (`0x3B0E00`, call at `0x337374` in `FUN_00337230`) holds "back" (stands up)
-  when an airborne attacker is attacking (`+0x490` bit 0) or the attack is a learned overhead, only while `FUN_00183570` ("attack incoming") is true, otherwise holding back just walks away.
-  In guard stun (`+0x530 & 0x400`) a crouching dummy stays crouched; a standing dummy ducks when a low is incoming (this is what makes a chain like j.C -> 2B show the crouch block; an
+  STAND dummy: `GA_AI` (`0x3B1600`, call at `0x140274` in `FUN_0013FAF0`, only runs while the AI expects an attack) turns the guard input from "back" into "down-back" when the
+  look-ahead `GA_LA` finds a low.  CROUCH dummy: `GA_CR` (`0x3B1410`, `0x3B1800` up to 1.6.1; call at `0x337374` in `FUN_00337230`) holds "back" (stands up) when `GA_LA` finds an overhead, only while
+  `FUN_00183570` ("attack incoming") is true, otherwise holding back just walks away.  When `GA_LA` finds no attack frame at all (projectiles), the learned table decides.
+* **Look-ahead** `GA_LA` (`0x3B0C80`, added after 1.6.1): the low / overhead flags of `+0x280` are byte 4 of the animation frame record the attacker is in (the record is read by `FUN_0015F6D0`:
+  12-byte header with duration, loop flags `byte 1 & 0xE0`, pose `byte 2` -> `+0x27E`, guard flags `byte 4` -> `+0x280`, box mask `byte 8` -> `+0x284`, sprite parts `byte 10`; then
+  6 bytes per sprite part, a flag word, 6 bytes per box, sub-records whose sizes come from the handler tables `0x361D20` (per sprite part) / `0x361DA0` (two nibbles of the flag word),
+  copied to `GA_LAT` `0x3B0F00`; then 4-byte lists while flag word bit 0x4000 / 0x8000).  Animation base = `[0x9BBD68 + 0x98 * byte[0x9BBCC0 + char id]]`, next record offset
+  `+0x268`, loop start `+0x26C`.  `GA_LA` walks up to 24 records from the current one (following loops, stopping at a hold frame) and returns the height of the first record
+  with a low / overhead flag or an attack box (box ids 0x20-0x60, 0x6E-0x7F in slots 0-3): 1 low, 2 overhead, 3 mid, 0 none.  Up to 1.6.1 the pose guesses "attacker crouched ->
+  low" and "attacker airborne -> overhead" were used instead, which made the dummy duck for Kyo 2C and the 63214K follow-up and stand up for R.E.D. Kick (all mid).
+  In guard stun (`+0x530 & 0x400`) a crouching dummy stands up when `GA_LA` finds an overhead (after 1.6.1, Vanessa 6A: mid, then overhead; before it stayed crouched), a standing dummy ducks when a low is incoming (this is what makes a chain like j.C -> 2B show the crouch block; an
   earlier version froze the stance in stun and the game then started the stand stun action when the second attack began, 7 frames before the contact).
 * **Contact hook** `GA_RT` (`0x3B0900`, replaces the call at `0x180674`) is the fallback for what could not be predicted: if the stance does not match the attack (low flag with type 0x1C, overhead
   flag with type 0x1D) the contact type (`+0xC` and its copy `+0x52C`) is rewritten to the other stance and the original check runs (it then guards by itself), and the attack is
   recorded in the learned table `GA_TBL` (`0x3B1000`, 64 x 8 bytes: u16 char id `+0xEA`, u16 action `+0xEC`, u8 kind 1 low / 2 overhead, count `DATA+0xEA`, `GA_LK` lookup, `GA_ST` store; RAM only).
-  The first use of a ground overhead / special low is therefore blocked in the wrong animation once, then the pre-hit logic knows it until the game is restarted.
+  With the look-ahead (after 1.6.1) the dummy knows ground overheads and lows from the first use; the table only matters for attacks without an attack frame in the attacker's own animation (projectiles).
 * Menu: value 8 "ALL" is selectable (value lists / counts of ACTION 0, 1, 7, 8, 10, 11 +1, string table `GA_TAB`); the vanilla byte `0x9CB244` stays 1 while ALL is active, the ALL flag is
   `DATA+0xE8`, the displayed value is the mirror `DATA+0xE9` (synced in the poll wrapper, `POST` stub `0x3B0C00` after the menu cycles). Saves keep plain GUARD.
 * Known: the AI also shows the guard pose on close whiffs (vanilla behaviour); live patches in the `0x337xxx` area do not take effect in PCSX2 (stale recompiler blocks), test those with a cold boot of a built ISO.

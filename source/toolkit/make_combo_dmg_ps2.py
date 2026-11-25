@@ -2556,11 +2556,14 @@ def patch_gauge(b, off):
 # 0x1C (standing) / 0x1D (crouching), copied to contact byte +0xC of the hit.  FUN_00180190 (called from FUN_00180640 at 0x180674) then
 # checks the attacker's flags at +0x280: standing guard fails when bit 0x80 (low) is set, crouching guard fails with bit 0x40 (overhead);
 # a failed check makes the contact a normal hit (+0xC := 2), otherwise guard bit 0x400 of the defender's +0x530 is set.  The flags are only
-# set in the frame the hitbox becomes active, so the dummy cannot react beforehand.
-# Pose choice before the hit: STAND dummy ducks in FUN_0013FAF0 (GA_AI) when the attacker's frame pose byte +0x27E is 1 or the attack is a learned low; CROUCH
-# dummy stands up in FUN_00337230 (GA_CR) when an airborne attacker is attacking (+0x490 bit 0) or the attack is a learned overhead AND the game's own "attack incoming"
-# test FUN_00183570 is true (otherwise holding back just walks away).  Learned table GA_TBL: the contact hook records (char id, action, low/overhead) the first
-# time a forced guard had the wrong stance.
+# set in the frame the hitbox becomes active (they come from byte 4 of that frame's animation record), so the dummy reads them ahead with GA_LA.
+# In guard stun the stance follows the next hit too (after 1.6.1): a standing dummy ducks for a low, a crouching one stands up for an overhead (Vanessa 6A: mid, then overhead).
+# Pose choice before the hit: STAND dummy ducks in FUN_0013FAF0 (GA_AI) when the look-ahead GA_LA finds a low (or, with no attack frame ahead, e.g. a
+# projectile, the attack is a learned low); CROUCH dummy stands up in FUN_00337230 (GA_CR) when GA_LA finds an overhead (or a learned overhead) AND the game's
+# own "attack incoming" test FUN_00183570 is true (otherwise holding back just walks away).  Learned table GA_TBL: the contact hook records (char id, action,
+# low/overhead) the first time a forced guard had the wrong stance; since the look-ahead (after 1.6.1) it is only the fallback for attacks without an attack frame in the
+# attacker's own animation.  Up to 1.6.1 the guesses "attacker pose crouched -> low" and "attacker airborne and attacking -> overhead" were used instead
+# of GA_LA: wrong for Kyo 2C, the 63214K follow-up (crouched start-up, mid hit) and R.E.D. Kick (airborne, mid).
 # GUARD ALL: stub GA_RT replaces the call: for the dummy (CONTROL CPU, practice, side != owner) and contact types 0x1C/0x1D guard is always set.
 # Menu: value 8 "ALL" is shown from a mirror byte GMODE (= ALL ? 8 : 0x9CB244); the vanilla byte 0x9CB244 stays 1 (GUARD) while ALL is active so all
 # AI code keeps working; ALL flag DATA+0xE8 (only valid while 0x9CB244 == 1).  The value lists / counts of the ACTIONs with the full list get one more entry.
@@ -2568,7 +2571,7 @@ GA_LIST = 0x3B0780
 GA_TAB = 0x3B0800            # 11 value strings (stride 0x14): the vanilla 8 (copied) + ALL, RANDOM, RANDOM ALL
 GA_RT = 0x3B0900
 GA_POST = 0x3B0C00
-GA_AI = 0x3B1600             # FUN_0013FAF0: STAND dummy ducks (code 7) when the attacker's frame pose byte +0x27E is 1 (crouch; 0 stand, 2 air)
+GA_AI = 0x3B1600             # FUN_0013FAF0: STAND dummy ducks (code 7) when GA_LA finds a low ahead
 GA_TBL = 0x3B1000            # learned attacks: 64 entries x 8 bytes (u16 char id, u16 action, u8 kind 1 low / 2 overhead), count byte GA_CNT
 GA_LK = 0x3B1200             # lookup (a0 = attacker char) -> v0 kind
 GA_ST = 0x3B1300             # store (a0 = attacker char, a1 = kind)
@@ -2583,7 +2586,17 @@ GA_CRCODE = DATA + 0x104                    # guard code chosen by GA_CR this fr
 GA_LASTT = DATA + 0x100                     # tick of the previous GA_RN call (a gap of more than 6 frames = new attack)
 GA_BLK, GA_RNG, GA_LAST = DATA + 0xEB, DATA + 0xF0, DATA + 0xF4   # decision byte, LCG state (stepped by the poll wrapper), last attack key (char id << 16 | action)
 GA_STUN_CROUCH, GA_STUN_STAND = 45, 49       # guard stun actions the dummy is switched to directly when a forced guard has the wrong stance (the 0x530 guard bit is already cleared again in a chain, so no stun precondition)
-GA_CR = 0x3B1800             # FUN_00337230 (ACTION CROUCH): the dummy stands up (code 8) while the attacker is airborne
+GA_CR = 0x3B1410             # FUN_00337230 (ACTION CROUCH): the dummy stands up (code 8) for an incoming overhead
+# Look-ahead (added after 1.6.1): GA_LA (a0 = attacker char) -> v0 0 no attack frame ahead / 1 low / 2 overhead / 3 mid.  It walks the attacker's animation
+# script from the current frame on (the same record format FUN_0015F6D0 reads: 12-byte header, byte 4 -> +0x280 = guard flags 0x80 low / 0x40
+# overhead, byte 8 -> +0x284 = box mask; sprite parts, flag word, boxes, then sub-records whose sizes come from the handler tables 0x361D20 /
+# 0x361DA0, sizes copied into GA_LAT) and returns the guard height of the first frame that carries a low/overhead flag or an attack box.
+# Replaces the old guesses "attacker pose crouched -> low" (Kyo 2C, 63214K follow-up) and "attacker airborne -> overhead" (Kyo R.E.D. Kick).
+GA_LA = 0x3B0C80
+GA_LAT = 0x3B0F00            # 16 bytes sizes of the sprite-part handlers (0x361D20), 16 bytes sizes of the flag-word handlers (0x361DA0)
+GA_LA_D20 = (0, 0, 0, 0, 0, 2, 2, 4, 4, 4, 6, 6, 6, 0, 0, 0)
+GA_LA_DA0 = (0, 0, 2, 2, 4, 2, 4, 2, 2, 2, 4, 6, 0, 0, 2, 4)
+GA_LA_MAX = 24               # frame records looked at (an idle loop ends here)
 GA_ALL, GA_MODE = DATA + 0xE8, DATA + 0xE9
 GA_STRINGS_ORIG = 0x3D2AB0
 GA_NEW_STRINGS = ("ALL", "RANDOM", "RANDOM ALL")
@@ -2888,23 +2901,38 @@ ai_pose:
     andi $t4, $t4, 8
     beqz $t4, ai_att
     nop
+    jal {GA_LA:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 2
+    beq $v0, $t4, ai_stst
+    nop
+    bnez $v0, ai_kd
+    nop
+    jal {GA_LK:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 2
+    beq $v0, $t4, ai_stst
+    nop
+ai_kd:
     addiu $s7, $zero, 1
     b ai_ret
     nop
+ai_stst:
+    addu $s7, $zero, $zero
+    b ai_ret
+    nop
 ai_att:
-    jal {GA_LK:#x}
+    jal {GA_LA:#x}
     ld $a0, 0x10($sp)
     addiu $t4, $zero, 1
     beq $v0, $t4, ai_duck
     nop
-    addiu $t4, $zero, 2
-    beq $v0, $t4, ai_ret
+    bnez $v0, ai_ret
     nop
-    ld $t5, 0x10($sp)
-    lbu $t4, 0x27e($t5)
-    andi $t4, $t4, 0xf
-    addiu $t6, $zero, 1
-    bne $t4, $t6, ai_ret
+    jal {GA_LK:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 1
+    bne $v0, $t4, ai_ret
     nop
 ai_duck:
     addiu $s7, $zero, 1
@@ -2983,44 +3011,57 @@ cr_pose:
     nop
     lw $t4, 0x48c($s1)
     andi $t4, $t4, 8
-    bnez $t4, cr_ret
+    bnez $t4, cs_crst
     nop
     addiu $t7, $zero, 8
     sd $t7, 8($sp)
-    jal {GA_LK:#x}
+    jal {GA_LA:#x}
     ld $a0, 0x10($sp)
     addiu $t4, $zero, 1
     beq $v0, $t4, cs_duck
     nop
-    ld $t5, 0x10($sp)
-    lbu $t2, 0x27e($t5)
-    andi $t2, $t2, 0xf
+    bnez $v0, cr_ret
+    nop
+    jal {GA_LK:#x}
+    ld $a0, 0x10($sp)
     addiu $t4, $zero, 1
-    bne $t2, $t4, cr_ret
+    bne $v0, $t4, cr_ret
     nop
 cs_duck:
     addiu $t7, $zero, 7
     sd $t7, 8($sp)
     b cr_ret
     nop
-cr_norm:
+cs_crst:
+    jal {GA_LA:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 2
+    beq $v0, $t4, cs_up
+    nop
+    bnez $v0, cr_ret
+    nop
     jal {GA_LK:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 2
+    bne $v0, $t4, cr_ret
+    nop
+cs_up:
+    addiu $t7, $zero, 8
+    sd $t7, 8($sp)
+    b cr_ret
+    nop
+cr_norm:
+    jal {GA_LA:#x}
     ld $a0, 0x10($sp)
     addiu $t4, $zero, 2
     beq $v0, $t4, cr_stand
     nop
-    addiu $t4, $zero, 1
-    beq $v0, $t4, cr_ret
+    bnez $v0, cr_ret
     nop
-    ld $t5, 0x10($sp)
-    lbu $t2, 0x27e($t5)
-    andi $t2, $t2, 0xf
-    addiu $t3, $zero, 2
-    bne $t2, $t3, cr_ret
-    nop
-    lw $t2, 0x490($t5)
-    andi $t2, $t2, 1
-    beqz $t2, cr_ret
+    jal {GA_LK:#x}
+    ld $a0, 0x10($sp)
+    addiu $t4, $zero, 2
+    bne $v0, $t4, cr_ret
     nop
 cr_stand:
     ld $t5, 0x10($sp)
@@ -3162,15 +3203,183 @@ st_out:
     jr $ra
     nop
 """
+    lt_hi, lt_lo = hi_lo(GA_LAT)
+    lt2_hi, lt2_lo = hi_lo(GA_LAT + 16)
+    d[GA_LA] = f"""
+    lbu $v0, 0x280($a0)
+    andi $v1, $v0, 0x80
+    bnez $v1, la_low
+    nop
+    andi $v1, $v0, 0x40
+    bnez $v1, la_high
+    nop
+    lhu $t0, 0xea($a0)
+    lui $t1, 0x9c
+    addu $t1, $t1, $t0
+    lbu $t1, -0x4340($t1)
+    sll $t2, $t1, 3
+    sll $t3, $t1, 4
+    addu $t2, $t2, $t3
+    sll $t3, $t1, 7
+    addu $t2, $t2, $t3
+    lui $t3, 0x9c
+    addu $t3, $t3, $t2
+    lw $t0, -0x4298($t3)
+    beqz $t0, la_none
+    nop
+    lw $t1, 0x268($a0)
+    lw $t2, 0x26c($a0)
+    addiu $t9, $zero, {GA_LA_MAX}
+la_loop:
+    beqz $t9, la_none
+    addiu $t9, $t9, -1
+    addu $t3, $t0, $t1
+    lbu $t4, 4($t3)
+    andi $v0, $t4, 0x80
+    bnez $v0, la_low
+    nop
+    andi $v0, $t4, 0x40
+    bnez $v0, la_high
+    nop
+    lbu $t4, 10($t3)
+    addiu $t5, $zero, 1
+    andi $v0, $t4, 0x10
+    beqz $v0, la_p3
+    nop
+    addiu $t5, $zero, 3
+la_p3:
+    andi $v0, $t4, 0x20
+    beqz $v0, la_p4
+    nop
+    ori $t5, $t5, 4
+la_p4:
+    addiu $t6, $t3, 12
+    addu $t7, $zero, $zero
+    addiu $t8, $zero, 3
+la_parts:
+    andi $v0, $t5, 1
+    beqz $v0, la_pn
+    srl $t5, $t5, 1
+    lbu $v0, 5($t6)
+    srl $v0, $v0, 4
+    lui $v1, {lt_hi:#x}
+    addu $v1, $v1, $v0
+    lbu $v0, {sx(lt_lo)}($v1)
+    addu $t7, $t7, $v0
+    addiu $t6, $t6, 6
+la_pn:
+    addiu $t8, $t8, -1
+    bnez $t8, la_parts
+    nop
+    lhu $t4, 0($t6)
+    addiu $t6, $t6, 2
+    lbu $t5, 8($t3)
+    addu $t8, $zero, $zero
+la_box:
+    andi $v0, $t5, 1
+    beqz $v0, la_bn
+    nop
+    sltiu $v0, $t8, 4
+    beqz $v0, la_bskip
+    nop
+    lbu $v0, 1($t6)
+    andi $v0, $v0, 0x7f
+    addiu $v1, $v0, -0x20
+    sltiu $v1, $v1, 0x41
+    bnez $v1, la_mid
+    nop
+    addiu $v1, $v0, -0x6e
+    sltiu $v1, $v1, 0x12
+    bnez $v1, la_mid
+    nop
+la_bskip:
+    addiu $t6, $t6, 6
+la_bn:
+    srl $t5, $t5, 1
+    addiu $t8, $t8, 1
+    sltiu $v0, $t8, 6
+    bnez $v0, la_box
+    nop
+    addu $t6, $t6, $t7
+    srl $v0, $t4, 4
+    andi $v0, $v0, 0xf
+    lui $v1, {lt2_hi:#x}
+    addu $v1, $v1, $v0
+    lbu $v0, {sx(lt2_lo)}($v1)
+    addu $t6, $t6, $v0
+    andi $v0, $t4, 0xf
+    lui $v1, {lt2_hi:#x}
+    addu $v1, $v1, $v0
+    lbu $v0, {sx(lt2_lo)}($v1)
+    addu $t6, $t6, $v0
+    andi $v0, $t4, 0x4000
+    beqz $v0, la_c8
+    nop
+la_l4:
+    lhu $v0, 2($t6)
+    addiu $t6, $t6, 4
+    andi $v0, $v0, 0x2000
+    bnez $v0, la_l4
+    nop
+la_c8:
+    andi $v0, $t4, 0x8000
+    beqz $v0, la_nx
+    nop
+la_l8:
+    lhu $v0, 2($t6)
+    addiu $t6, $t6, 4
+    andi $v0, $v0, 0x8000
+    bnez $v0, la_l8
+    nop
+la_nx:
+    lbu $t4, 1($t3)
+    andi $v0, $t4, 0x20
+    beqz $v0, la_nl
+    nop
+    addu $t2, $t1, $zero
+la_nl:
+    andi $v0, $t4, 0xc0
+    bnez $v0, la_jmp
+    nop
+    b la_loop
+    subu $t1, $t6, $t0
+la_jmp:
+    addiu $v1, $zero, 0x80
+    beq $v0, $v1, la_none
+    nop
+    beq $t2, $t1, la_none
+    nop
+    b la_loop
+    addu $t1, $t2, $zero
+la_low:
+    jr $ra
+    addiu $v0, $zero, 1
+la_high:
+    jr $ra
+    addiu $v0, $zero, 2
+la_mid:
+    jr $ra
+    addiu $v0, $zero, 3
+la_none:
+    jr $ra
+    addu $v0, $zero, $zero
+"""
     return {a: opt_asm(src, a) for a, src in d.items()}
 
 
 def patch_guardall(b, off):
     code = guardall_code()
+    spans = sorted((a, a + len(c)) for a, c in code.items())
+    for (a0, e0), (a1, _) in zip(spans, spans[1:]):
+        assert e0 <= a1, f"guard-all block {a0:#x} runs into {a1:#x}"
     for a, c in code.items():
         assert len(c) <= 0x300, (hex(a), len(c))
         assert not any(b[off(a):off(a) + len(c)]), f"guard-all region {a:#x} not zero"
         b[off(a):off(a) + len(c)] = c
+    assert GA_LA + len(code[GA_LA]) <= GA_LAT, hex(GA_LA + len(code[GA_LA]))
+    lat = bytes(GA_LA_D20 + GA_LA_DA0)
+    assert not any(b[off(GA_LAT):off(GA_LAT) + len(lat)])
+    b[off(GA_LAT):off(GA_LAT) + len(lat)] = lat
     # value list [0..8] + terminator, strings copied from the vanilla table + new ones
     assert not any(b[off(GA_LIST):off(GA_LIST) + 16]) and not any(b[off(GA_TAB):off(GA_TAB) + 0x14 * GA_NVAL])
     b[off(GA_LIST):off(GA_LIST) + GA_NVAL + 1] = bytes(list(range(GA_NVAL)) + [0xFF])
