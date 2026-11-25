@@ -181,7 +181,8 @@ the SELECT handler exit `0x33B41C` (the quick reset entry stub) continues at the
 Mad Gear changes on top (`make_combo_dmg_ps2.py`, `patch_hitbox`): colours follow the odabugs viewer (hurt 0,0,255; counter 127,127,255; guard 0,255,255; projectile hurt
 255,128,0; attack red; throw magenta; collision green); draw order back to front (body, hurt, counter, guard, projectile, receiver, attack, throw; `HB_PASSES`); the collision
 box is hidden whenever the game switches it off (`[+0x283] & 0x10`: rolls and other actions) through a trampoline at `0x3AF400`. Further caves: `0x3AF330`, `0x3AF360`,
-`0x3AF440`, `0x3AFB40`. Flag `--no-hitbox` leaves it out.
+`0x3AF440`, `0x3AFB40`. Flag `--no-hitbox` leaves it out. Mad Gear 1.6.1: the screen Y bias of his listing (`addiu ..., 0x708` at `0x114384` for the
+boxes and `0x1143DC` for the pivot cross) is `0x6FE`, 10 px higher, which puts the pivot on the feet and matches odabugs' viewer (Screen Type A).
 
 ## Frame advantage display (practice, Mad Gear 1.6)
 `toolkit/frameadv_ps2.py`, builder flag `frameadv=True`. After every contact (hit, block, throw, trade) both sides' first free frame is measured;

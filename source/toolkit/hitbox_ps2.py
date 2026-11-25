@@ -4,8 +4,10 @@ The drawer, its SELECT stub, the box-kind tables and the chain are by Vans (vans
 https://github.com/vans1belmont/kofxi-international (source/asm/hit_box.s, CC BY-NC-SA 4.0) and used here with his permission.
 Credit: HIT BOX by Vans, collision data layout and colours after odabugs' hitbox viewer.
 
-Only change against his listing: the SELECT BUTTON value that switches it is 4 here (value 3 is QUICK RESET), i.e. the two
+Changes against his listing: the SELECT BUTTON value that switches it is 4 here (value 3 is QUICK RESET), i.e. the two
 immediates `addiu t3, zero, 3` at 0x11420C (the drawer's condition) and `addiu t0, zero, 3` at 0x114508 (the select stub) are 4.
+The screen Y bias `addiu t5, t5, 0x708` at 0x114384 (boxes) and `addiu t0, t0, 0x708` at 0x1143DC (pivot cross) is 0x6FE:
+0x708 drew everything 10 px too low (pivot below the feet); 0x6FE matches odabugs' viewer (absoluteYOffset 35, Screen Type A).
 The 380 words are his machine code as stored, little-endian u32, starting at HB_BASE (over dead Sony stdio functions of the
 original executable, nothing in the game references them: checked by a scan for j/jal/pointer/lui+offset references).
 
@@ -38,11 +40,11 @@ HB_WORDS = (
     0x0C04513B, 0xC6420090, 0x0040582D, 0x0C04513B, 0x92A80007, 0x0040602D,
     0x86A80002, 0x312A0001, 0x51400001, 0x00084023, 0x0C04513B, 0xC6420094,
     0x0040682D, 0x0C04513B, 0x92A80008, 0x0040702D, 0x86480000, 0x01685821,
-    0x01765823, 0x256B06C0, 0x86480002, 0x01A86821, 0x01B76823, 0x25AD0708,
+    0x01765823, 0x256B06C0, 0x86480002, 0x01A86821, 0x01B76823, 0x25AD06FE,
     0x016C4023, 0x00084100, 0x016C4821, 0x00094900, 0x01AE5023, 0x000A5100,
     0x01AE7821, 0x0C045119, 0x000F7900, 0x0014A042, 0x1680FFC0, 0x26B5000A,
     0x3C090011, 0x792A4680, 0x7E6A0020, 0x86480000, 0x01164023, 0x250806C0,
-    0x0008A100, 0x86480002, 0x01174023, 0x25080708, 0x0008A900, 0x2688FF80,
+    0x0008A100, 0x86480002, 0x01174023, 0x250806FE, 0x0008A900, 0x2688FF80,
     0x26890080, 0x26AAFFF0, 0x0C045119, 0x26AF0010, 0x2688FFF0, 0x26890010,
     0x26AAFF80, 0x0C045119, 0x26AF0080, 0x26100004, 0x1611FF8C, 0x8E120000,
     0x3C08009B, 0x25086BC0, 0x8D0A0000, 0x11400003, 0x25080004, 0x1511FFFC,

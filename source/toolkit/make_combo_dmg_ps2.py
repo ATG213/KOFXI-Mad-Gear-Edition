@@ -3833,14 +3833,14 @@ def patch_optdisplay(b, off):
 # draws into the currently bound menu texture (white glyphs); the vertex colour (t0 = 0xAARRGGBB, factor about 0.94) tints it to the UI red cb0608.
 # Glyph rects: name-entry table GLYPHTAB (same shapes as the Character Setting alphabet), index = position in NAME_ORDER.
 # Bump MG_VERSION for every release, then re-run export_hack_patches.py (gfx_hacks.json) and rebuild the patcher.
-MG_VERSION = "1.6"
+MG_VERSION = "1.6.1"
 VER_CAVE = 0x3B2F00
 VER_SITE = 0x330D40                  # addiu sp,sp,-0xa0 ; sd ra,0x90(sp)   (task fn of the main menu draw)
-VER_X, VER_Y = 540.0, 409.0          # pixels (640 x 448), left edge of the first glyph; inside the black area, lower right
+VER_X, VER_Y = 524.0, 409.0          # pixels (640 x 448), left edge of the first glyph; inside the black area, lower right (540 until 1.6; "V1.6.1" is 16 px longer)
 VER_COLOR = 0x80D8070A               # tint -> about cb0608 on screen
 VER_SCALE = 17.0                     # printer f14 (same value the combo damage display uses)
 NAME_ORDER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!?\"#$%&'()[]:;,.<>+-*/=_ {}"
-VER_ADV = {"1": 10, ".": 6, " ": 8}  # glyph advance in pixels, default 14
+VER_ADV = {"1": 10, ".": 6, " ": 8, "6": 12}  # glyph advance in pixels, default 14 ("6" 12: same gap before "." as after "1")
 
 
 def version_stub():
@@ -3878,7 +3878,7 @@ def version_stub():
 
 def patch_version(b, off):
     code = version_stub()
-    assert len(code) <= 0x200, len(code)
+    assert len(code) <= 0x300, len(code)          # zero run ends 0x3B34BC; "V1.6.1" needs 0x280
     assert not any(b[off(VER_CAVE):off(VER_CAVE) + len(code)]), hex(VER_CAVE)
     assert struct.unpack_from("<I", b, off(VER_SITE))[0] == 0x27BDFF60, "addiu sp,sp,-0xa0"
     assert struct.unpack_from("<I", b, off(VER_SITE + 4))[0] == 0xFFBF0090, "sd ra,0x90(sp)"
