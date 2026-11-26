@@ -106,4 +106,4 @@ Unofficial fan project, not affiliated with SNK. You need a legally obtained cop
 
 ## License
 
-The patchers, source code and documentation in this repository are released under [CC BY-NC-SA 4.0](LICENSE) (Creative Commons Attribution-NonCommercial-ShareAlike 4.0, the same license as Vans' kofxi-international): free for any noncommercial use, sharing and modification with credit to ATG; changed versions must use the same license; commercial use is not permitted. This applies to the mod only, not to the game or its assets.
+The patchers, source code and documentation in this repository are released under [CC BY-NC-SA 4.0](LICENSE) (Creative Commons Attribution-NonCommercial-ShareAlike 4.0): free for any noncommercial use, sharing and modification with credit to ATG. Changed versions must use the same license; commercial use is not permitted. This applies to the mod only, not to the game or its assets.
